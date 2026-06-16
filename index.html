@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>길드전 랭킹 대시보드 · [빌 런]착한사람들</title>
+<title>길드전 랭킹 대시보드 · [ 빌 런 ] 착한사람들</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -20,9 +21,10 @@
     --s5:#37cdbf; --s4:#46a6ff; --s3:#7f9bff; --s2:#b58cff; --s1:#7787ab;
     --radius:16px;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
+  *{box-sizing:border-box;margin:0;padding:0;
+    font-family:'Pretendard Variable','Pretendard',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
   body{
-    font-family:'Pretendard',system-ui,-apple-system,sans-serif;
+    font-family:'Pretendard Variable','Pretendard',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
     background:
       radial-gradient(1200px 600px at 80% -10%, rgba(244,196,81,.08), transparent 60%),
       radial-gradient(900px 500px at -5% 0%, rgba(70,166,255,.07), transparent 55%),
@@ -130,6 +132,56 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast.err{border-color:var(--s9)}
 
+  /* 달력 버튼 */
+  .calbtn{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);color:var(--tx);
+    font-size:13.5px;font-weight:700;border:1px solid var(--line2);border-radius:10px;
+    padding:10px 14px;cursor:pointer;transition:.15s}
+  .calbtn:hover{border-color:var(--gold);background:var(--raised)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+  /* 선택 날짜 뱃지 */
+  .datebadge{display:none;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(70,207,134,.16),rgba(70,207,134,.04));
+    border:1px solid rgba(70,207,134,.4);border-radius:12px;padding:9px 14px;margin-bottom:18px}
+  .datebadge.show{display:flex}
+  .datebadge .ic{font-size:16px}
+  .datebadge .txt{font-size:13.5px;font-weight:700}
+  .datebadge .txt b{color:var(--mine)}
+  .datebadge .clr{margin-left:auto;background:transparent;border:1px solid var(--line2);color:var(--muted);
+    font-size:12px;font-weight:700;border-radius:8px;padding:5px 11px;cursor:pointer}
+  .datebadge .clr:hover{color:var(--tx);border-color:var(--gold)}
+
+  /* 달력 모달 */
+  .modal{position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:60;padding:18px}
+  .modal.show{display:flex}
+  .cal{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+    border-radius:18px;padding:20px;width:min(420px,100%);box-shadow:0 30px 80px -20px rgba(0,0,0,.8)}
+  .cal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .cal-top h3{font-size:15px;font-weight:800}
+  .cal-x{background:transparent;border:0;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:4px}
+  .cal-x:hover{color:var(--tx)}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 14px}
+  .cal-nav button{background:var(--raised);border:1px solid var(--line2);color:var(--tx);
+    width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px;font-weight:800;transition:.15s}
+  .cal-nav button:hover{border-color:var(--gold)}
+  .cal-nav button:disabled{opacity:.3;cursor:default}
+  .cal-nav .ym{font-size:15px;font-weight:800;letter-spacing:.02em}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--dim);padding:4px 0}
+  .cal-dow.sun{color:var(--s9)} .cal-dow.sat{color:var(--s4)}
+  .cal-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:10px;font-size:13px;font-weight:700;color:var(--dim);position:relative;border:1px solid transparent}
+  .cal-cell.pad{visibility:hidden}
+  .cal-cell.has{color:var(--tx);background:var(--raised);border-color:var(--line2);cursor:pointer;transition:.13s}
+  .cal-cell.has:hover{border-color:var(--gold);transform:translateY(-2px)}
+  .cal-cell.has .pt{width:5px;height:5px;border-radius:50%;background:var(--mine);margin-top:3px}
+  .cal-cell.sel{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1206;border-color:transparent}
+  .cal-cell.sel .pt{background:#1a1206}
+  .cal-cell.today{box-shadow:inset 0 0 0 1px var(--gold)}
+  .cal-foot{margin-top:14px;font-size:11.5px;color:var(--dim);display:flex;align-items:center;gap:7px;justify-content:center}
+  .cal-foot .leg{display:inline-flex;align-items:center;gap:5px}
+  .cal-foot .leg i{width:6px;height:6px;border-radius:50%;background:var(--mine);display:inline-block}
+
   @media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:520px){.podium{grid-template-columns:1fr;gap:10px}.pod.g{order:-1}.search{width:140px}.rightcol{align-items:flex-start}}
 </style>
@@ -143,13 +195,21 @@
       <div class="sub">요일별 랭킹 포인트</div>
     </div>
     <div class="rightcol">
-      <button class="loadbtn" id="loadBtn">📂 엑셀 불러오기</button>
+      <div class="btnrow">
+        <button class="calbtn" id="calBtn">📅 달력으로 보기</button>
+        <button class="loadbtn" id="loadBtn">📂 엑셀 불러오기</button>
+      </div>
       <input type="file" id="fileIn" accept=".xlsx,.xlsm" style="display:none">
       <div class="datebox"><div class="d" id="srcLabel">집계 기준일</div><div class="v num" id="dateVal">2026.06.16</div></div>
     </div>
   </header>
 
   <div class="tabs" id="tabs"></div>
+  <div class="datebadge" id="dateBadge">
+    <span class="ic">📅</span>
+    <span class="txt" id="badgeTxt"></span>
+    <button class="clr" id="badgeClr">이번 주로 돌아가기</button>
+  </div>
   <div class="kpis" id="kpis"></div>
 
   <div class="grid">
@@ -172,6 +232,22 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- 달력 모달 -->
+<div class="modal" id="calModal">
+  <div class="cal">
+    <div class="cal-top">
+      <h3>📅 날짜별 기록 보기</h3>
+      <button class="cal-x" id="calClose">×</button>
+    </div>
+    <div class="cal-nav">
+      <button id="calPrev">‹</button>
+      <div class="ym" id="calYM"></div>
+      <button id="calNext">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+</div>
+
 <script>
 let DATA = {"days":{"월요일":{"players":[{"rank":1,"player":"떪은홍시","score":76513151,"stage":"9단계"},{"rank":2,"player":"Lv100 배회하는 좀비","score":62254586,"stage":"9단계"},{"rank":3,"player":"뮤지컬보러가서노래따라부르는놈","score":36598969,"stage":"9단계"},{"rank":4,"player":"독여울","score":26859795,"stage":"9단계"},{"rank":5,"player":"스무디에얼음빼주세요","score":22027625,"stage":"9단계"},{"rank":6,"player":"독화살","score":19336746,"stage":"9단계"},{"rank":7,"player":"-프리저-","score":17008882,"stage":"9단계"},{"rank":8,"player":"왜요뭐","score":16620269,"stage":"9단계"},{"rank":9,"player":"빨강맛","score":15971399,"stage":"9단계"},{"rank":10,"player":"별빛여신","score":15579579,"stage":"9단계"},{"rank":11,"player":"떠들어봐안들린다","score":15166835,"stage":"9단계"},{"rank":12,"player":"진짜한입만나못믿니","score":15136017,"stage":"9단계"},{"rank":13,"player":"독거노인춘삼","score":15045625,"stage":"9단계"},{"rank":14,"player":"아크으","score":11929975,"stage":"9단계"},{"rank":15,"player":"독건담","score":11703867,"stage":"9단계"},{"rank":16,"player":"아사히","score":11641804,"stage":"9단계"},{"rank":17,"player":"영화관에서결말스포한냔","score":11224132,"stage":"9단계"},{"rank":18,"player":"미녀와야자수","score":11128193,"stage":"9단계"},{"rank":19,"player":"독방구핑","score":10907771,"stage":"9단계"},{"rank":20,"player":"뉴스나온그사람","score":10606882,"stage":"9단계"},{"rank":21,"player":"니면상시베리아","score":10422796,"stage":"9단계"},{"rank":22,"player":"모어쩌라고","score":10412768,"stage":"9단계"},{"rank":23,"player":"빡센공주","score":10128124,"stage":"9단계"},{"rank":24,"player":"할말있는데나중에말해줌","score":9706739,"stage":"9단계"},{"rank":25,"player":"명령하디마라","score":9164119,"stage":"9단계"},{"rank":26,"player":"독수리골드","score":8999382,"stage":"9단계"},{"rank":27,"player":"습격이다개스키야","score":8596217,"stage":"9단계"},{"rank":28,"player":"독과점","score":8456726,"stage":"9단계"},{"rank":29,"player":"독잉교","score":8220352,"stage":"9단계"},{"rank":30,"player":"해녀도앤댈리는뒈","score":8154156,"stage":"9단계"},{"rank":31,"player":"훔쳐뿟노","score":8127020,"stage":"9단계"},{"rank":32,"player":"쉰데렐라","score":7952273,"stage":"9단계"},{"rank":33,"player":"앞니로조사버리는토끼","score":7918857,"stage":"9단계"},{"rank":34,"player":"핑도노·훔치고·생각하는·편","score":7909501,"stage":"9단계"},{"rank":35,"player":"독철이","score":7876636,"stage":"9단계"},{"rank":36,"player":"베놈이마깐데또까","score":7824653,"stage":"9단계"},{"rank":37,"player":"독로이지","score":7823884,"stage":"9단계"},{"rank":38,"player":"독독쿠롱","score":7679597,"stage":"9단계"},{"rank":39,"player":"이런들어떠하리저런들어떠하리","score":7635056,"stage":"9단계"},{"rank":40,"player":"숲속모텔","score":7579677,"stage":"9단계"},{"rank":41,"player":"현금만받아","score":7552044,"stage":"9단계"},{"rank":42,"player":"독후감상문","score":7462230,"stage":"9단계"},{"rank":43,"player":"괴도하미","score":7423633,"stage":"9단계"},{"rank":44,"player":"독한다람쥐","score":7327050,"stage":"9단계"},{"rank":45,"player":"여썰고","score":6678842,"stage":"8단계"},{"rank":46,"player":"라면주면갈께","score":6177989,"stage":"8단계"},{"rank":47,"player":"단추가게","score":5901298,"stage":"8단계"},{"rank":48,"player":"독골골","score":5097585,"stage":"8단계"},{"rank":49,"player":"독눈누눈누","score":5036088,"stage":"8단계"},{"rank":50,"player":"엘베닫힘연타범","score":4821347,"stage":"8단계"},{"rank":51,"player":"티거Ya드랍더튀어","score":4599953,"stage":"8단계"},{"rank":52,"player":"독그릭","score":4332112,"stage":"8단계"},{"rank":53,"player":"독한월요일병","score":4235009,"stage":"8단계"},{"rank":54,"player":"눈밑에점찍고돌아온아내","score":4226803,"stage":"8단계"},{"rank":55,"player":"안톤 쉬거","score":3992666,"stage":"8단계"},{"rank":56,"player":"자르반84세","score":3935236,"stage":"8단계"},{"rank":57,"player":"독고독","score":3819189,"stage":"8단계"},{"rank":58,"player":"주니쯤","score":2896389,"stage":"8단계"},{"rank":59,"player":"독팡팡","score":2645896,"stage":"8단계"},{"rank":60,"player":"1090","score":2195612,"stage":"6단계"},{"rank":61,"player":"독아윤","score":1908787,"stage":"6단계"},{"rank":62,"player":"독삼미","score":1890847,"stage":"6단계"},{"rank":63,"player":"독터키캔씨Turkey1881","score":1772463,"stage":"6단계"},{"rank":64,"player":"독이즈","score":1472500,"stage":"6단계"},{"rank":65,"player":"독주","score":1425274,"stage":"6단계"},{"rank":66,"player":"린이","score":1226829,"stage":"6단계"},{"rank":67,"player":"수색맨","score":460000,"stage":"3단계"}],"summary":{"9단계":44,"8단계":15,"7단계":0,"6단계":7,"5단계":0,"4단계":0,"3단계":1,"2단계":0,"1단계":0,"총 인원":67,"총 점수":714364306}},"화요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"수요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"목요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"금요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"토요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}}},"stages":[{"min":0,"stage":"1단계","range":"0 ~ 38,000"},{"min":38001,"stage":"2단계","range":"38,001 ~ 145,000"},{"min":145001,"stage":"3단계","range":"145,001 ~ 550,000"},{"min":550001,"stage":"4단계","range":"550,001 ~ 650,000"},{"min":650001,"stage":"5단계","range":"650,001 ~ 1,020,000"},{"min":1020001,"stage":"6단계","range":"1,020,001 ~ 2,280,000"},{"min":2280001,"stage":"7단계","range":"2,280,001 ~ 2,630,000"},{"min":2630001,"stage":"8단계","range":"2,630,001 ~ 7,189,999"},{"min":7190000,"stage":"9단계","range":"7,190,000 이상"}]};
 const DAYS=["월요일","화요일","수요일","목요일","금요일","토요일"];
@@ -179,8 +255,45 @@ const STAGE_NAMES=["1단계","2단계","3단계","4단계","5단계","6단계","
 const STAGE_COLOR={"9단계":"var(--s9)","8단계":"var(--s8)","7단계":"var(--s7)","6단계":"var(--s6)","5단계":"var(--s5)","4단계":"var(--s4)","3단계":"var(--s3)","2단계":"var(--s2)","1단계":"var(--s1)"};
 const MINE="";
 let cur="월요일";
+/* 요일 → 기준일자(YYYY-MM-DD). 엑셀 각 요일 시트 C1에서 읽어옴. 기본값은 데모 주간. */
+let WEEKDATES={"월요일":"2026-06-15","화요일":"2026-06-16","수요일":"2026-06-17","목요일":"2026-06-18","금요일":"2026-06-19","토요일":"2026-06-20"};
+/* 날짜(YYYY-MM-DD) → {players,summary,weekday}. 월별 보관시트 + 요일시트에서 구성. */
+let BYDATE={};
+/* 현재 보기: 요일 탭 보기 {type:'day'} 또는 달력 날짜 보기 {type:'date',date} */
+let curView={type:"day"};
 const fmt=n=>Number(n).toLocaleString("ko-KR");
 const abbr=n=> n>=1e8? (n/1e8).toFixed(2)+"억" : n>=1e4? Math.round(n/1e4).toLocaleString()+"만" : fmt(n);
+const WD_KOR=["일","월","화","수","목","금","토"];
+
+/* players 배열로 summary 계산 */
+function summarize(players){
+  const s={}; STAGE_NAMES.forEach(x=>s[x]=0);
+  players.forEach(p=>{ if(p.stage in s) s[p.stage]++; });
+  s["총 인원"]=players.length;
+  s["총 점수"]=players.reduce((a,p)=>a+p.score,0);
+  return s;
+}
+/* 날짜 문자열 → 요일명(월요일 등) */
+function weekdayOf(ds){ const d=new Date(ds+"T00:00:00"); return WD_KOR[d.getDay()]+"요일"; }
+
+/* DATA.days + WEEKDATES + DATA.archive 로부터 BYDATE 재구성 */
+function rebuildByDate(){
+  BYDATE={};
+  // 1) 월별 보관 시트(archive) 우선
+  const arch=DATA.archive||{};
+  Object.keys(arch).forEach(ds=>{
+    const players=arch[ds];
+    if(players&&players.length) BYDATE[ds]={players,summary:summarize(players),weekday:weekdayOf(ds)};
+  });
+  // 2) 요일 시트: 보관에 없는 날짜만 추가
+  DAYS.forEach(d=>{
+    const ds=WEEKDATES[d];
+    const day=DATA.days[d];
+    if(ds&&day&&day.players.length&&!BYDATE[ds]){
+      BYDATE[ds]={players:day.players,summary:day.summary,weekday:d};
+    }
+  });
+}
 
 /* ---------- 엑셀 파싱 (브라우저, SheetJS) ---------- */
 document.getElementById("loadBtn").onclick=()=>document.getElementById("fileIn").click();
@@ -193,41 +306,76 @@ document.getElementById("fileIn").onchange=e=>{
       const parsed=parseWorkbook(wb);
       if(parsed.totalPlayers===0){toast("플레이어 데이터를 찾지 못했어요. 시트 형식을 확인해 주세요.","err");return;}
       DATA=parsed.data;
-      // 데이터 있는 첫 요일로 이동
+      WEEKDATES=parsed.weekDates;
+      rebuildByDate();
+      // 이번 주(요일 탭) 보기로 복귀, 데이터 있는 첫 요일로 이동
+      curView={type:"day"};
       cur = DAYS.find(d=>DATA.days[d]&&DATA.days[d].players.length>0) || "월요일";
       document.getElementById("srcLabel").textContent="불러온 파일";
       document.getElementById("dateVal").textContent=f.name.replace(/\.(xlsx|xlsm)$/i,"");
-      document.getElementById("foot").textContent=f.name+" · 브라우저에서 직접 읽음";
+      document.getElementById("foot").textContent=f.name+" · 브라우저에서 직접 읽음 · 보관 날짜 "+Object.keys(BYDATE).length+"일";
       buildTabs(); render();
-      toast("불러오기 완료 · 데이터가 있는 요일 "+parsed.filledDays.length+"개 반영");
+      const nd=Object.keys(BYDATE).length;
+      toast("불러오기 완료 · 요일 "+parsed.filledDays.length+"개 · 달력 "+nd+"일 기록");
     }catch(err){console.error(err);toast("엑셀을 읽는 중 오류가 발생했어요.","err");}
   };
   r.readAsArrayBuffer(f);
   e.target.value="";
 };
 
+function normDate(v){
+  if(v==null||v==="") return null;
+  if(typeof v==="number" && isFinite(v)){
+    const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000);
+    return d.toISOString().slice(0,10);
+  }
+  let s=String(v).trim().replace(/[.\/]/g,"-");
+  const m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return m[1]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[3]).padStart(2,"0");
+  return null;
+}
+
 function parseWorkbook(wb){
-  const out={days:{},stages:[]};
+  const out={days:{},stages:[],archive:{}};
+  const weekDates={};
   let totalPlayers=0; const filledDays=[];
+  const J=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null}); // 컬럼 문자 키
+
+  // 1) 기준표 먼저 (단계 자동분류용): B=하한점수, C=단계, D=범위
+  const kb=wb.Sheets["기준표"];
+  if(kb){
+    J(kb).forEach(row=>{
+      const mn=row.B, st=row.C, rg=row.D;
+      if(typeof mn==="number" && st && String(st).includes("단계")){
+        out.stages.push({min:mn,stage:String(st).trim(),range:rg?String(rg).trim():""});
+      }
+    });
+  }
+  if(!out.stages.length) out.stages = (DATA.stages||[]);
+
+  // 2) 요일 시트(월~토): C1=기준일자, B/C/D/E=순위/플레이어/점수/단계, G/H=요약
   DAYS.forEach(name=>{
     const players=[], summary={};
     const ws=wb.Sheets[name];
     if(ws){
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
-      // 데이터 행: B(idx1)=순위, C(idx2)=플레이어, D(idx3)=점수, E(idx4)=단계
+      const rows=J(ws);
+      for(const row of rows.slice(0,3)){
+        for(const k of ["C","D","B","E"]){ const nd=normDate(row[k]); if(nd){ weekDates[name]=nd; break; } }
+        if(weekDates[name]) break;
+      }
       rows.forEach(row=>{
-        if(!row) return;
-        const rk=row[1], pl=row[2], sc=row[3], st=row[4];
-        if(typeof rk==="number" && pl && (typeof sc==="number")){
-          players.push({rank:rk,player:String(pl).trim(),score:sc,stage:st?String(st).trim():stageFromScore(sc,out.stages)});
+        const rk=row.B, pl=row.C, sc=row.D, st=row.E;
+        if(typeof rk==="number" && pl && typeof sc==="number"){
+          players.push({rank:rk,player:String(pl).trim(),score:sc,stage:st&&String(st).includes("단계")?String(st).trim():stageFromScore(sc,out.stages)});
         }
-        // 요약 블록: G(idx6)=라벨, H(idx7)=값
-        const lab=row[6], val=row[7];
+        const lab=row.G, val=row.H;
         if(lab!=null && typeof val==="number"){ summary[String(lab).trim()]=val; }
       });
     }
-    // 요약이 비어있으면 직접 계산
+    if(!weekDates[name]) weekDates[name]=WEEKDATES[name]||null;
     if(players.length){
+      players.sort((a,b)=>b.score-a.score);
+      players.forEach((p,i)=>p.rank=i+1);
       filledDays.push(name); totalPlayers+=players.length;
       if(!("총 인원" in summary)){
         STAGE_NAMES.forEach(s=>summary[s]=players.filter(p=>p.stage===s).length);
@@ -240,20 +388,29 @@ function parseWorkbook(wb){
     }
     out.days[name]={players,summary};
   });
-  // 기준표
-  const kb=wb.Sheets["기준표"];
-  if(kb){
-    const rows=XLSX.utils.sheet_to_json(kb,{header:1,raw:true,defval:null});
-    rows.forEach(row=>{
-      if(!row) return;
-      const mn=row[1], st=row[2], rg=row[3];
-      if(typeof mn==="number" && st && String(st).includes("단계")){
-        out.stages.push({min:mn,stage:String(st).trim(),range:rg?String(rg).trim():""});
+
+  // 3) 월별 보관 시트(YYYY-MM): A=날짜, B=순위, C=플레이어, D=점수, E=단계
+  wb.SheetNames.forEach(name=>{
+    if(!/^\d{4}-\d{2}$/.test(name)) return;
+    const ws=wb.Sheets[name]; if(!ws) return;
+    J(ws).forEach(row=>{
+      const ds=normDate(row.A); const pl=row.C, sc=row.D, st=row.E;
+      if(ds && pl && typeof sc==="number"){
+        (out.archive[ds]=out.archive[ds]||[]).push({
+          player:String(pl).trim(),score:sc,
+          stage:st&&String(st).includes("단계")?String(st).trim():stageFromScore(sc,out.stages)
+        });
       }
     });
-  }
-  if(!out.stages.length) out.stages = (DATA.stages||[]);
-  return {data:out,totalPlayers,filledDays};
+  });
+  Object.keys(out.archive).forEach(ds=>{
+    const arr=out.archive[ds];
+    arr.sort((a,b)=>b.score-a.score);
+    arr.forEach((p,i)=>p.rank=i+1);
+    totalPlayers+=arr.length;
+  });
+
+  return {data:out,weekDates,totalPlayers,filledDays};
 }
 function stageFromScore(sc,stages){
   if(!stages||!stages.length) return null;
@@ -270,26 +427,48 @@ function buildTabs(){
     const has=DATA.days[d]&&DATA.days[d].players.length>0;
     const b=document.createElement("button");
     b.className="tab"+(has?"":" empty")+(d===cur?" active":"");
+    b.dataset.day=d;
     b.innerHTML=d.replace("요일","")+(has?'<span class="dot"></span>':'');
-    b.onclick=()=>{cur=d;document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));b.classList.add("active");render();};
+    b.onclick=()=>{cur=d;curView={type:"day"};render();};
     tabsEl.appendChild(b);
   });
 }
 
 function render(){
-  const day=DATA.days[cur]; const P=day.players, S=day.summary; const empty=P.length===0;
+  // 보기 해석: 날짜 보기 or 요일 보기
+  let P,S,viewLabel,dateLabel;
+  if(curView.type==="date" && BYDATE[curView.date]){
+    const v=BYDATE[curView.date]; P=v.players; S=v.summary;
+    viewLabel=fmtDateK(curView.date)+" ("+v.weekday.replace("요일","")+")";
+    dateLabel=curView.date.replace(/-/g,".");
+  } else {
+    const day=DATA.days[cur]; P=day.players; S=day.summary;
+    viewLabel=cur; dateLabel=null;
+  }
+  // 탭 활성화 (날짜 보기일 땐 활성 탭 없음)
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.toggle("active", curView.type==="day" && t.dataset.day===cur);
+  });
+  // 날짜 뱃지
+  const badge=document.getElementById("dateBadge");
+  if(curView.type==="date"){
+    badge.classList.add("show");
+    document.getElementById("badgeTxt").innerHTML=`과거 기록 보기 · <b>${esc(viewLabel)}</b>`;
+  } else badge.classList.remove("show");
+
+  const empty=P.length===0;
   const total=S["총 점수"]||0, cnt=S["총 인원"]||0, avg=cnt?Math.round(total/cnt):0, top=P[0];
   document.getElementById("kpis").innerHTML=`
     <div class="kpi"><div class="lab">총 랭킹 포인트</div><div class="val num">${empty?"—":abbr(total)}</div><div class="meta num">${empty?"데이터 없음":fmt(total)+" P"}</div></div>
     <div class="kpi b"><div class="lab">참여 인원</div><div class="val num">${empty?"—":cnt}<span style="font-size:14px;color:var(--dim)"> 명</span></div><div class="meta">길드원 기록</div></div>
     <div class="kpi c"><div class="lab">평균 포인트</div><div class="val num">${empty?"—":abbr(avg)}</div><div class="meta num">${empty?"":fmt(avg)+" P"}</div></div>
     <div class="kpi d"><div class="lab">1위 점수</div><div class="val num">${empty?"—":abbr(top.score)}</div><div class="meta">${empty?"":esc(top.player)}</div></div>`;
-  document.getElementById("rankhint").textContent=empty?"":`${cur} · ${cnt}명`;
+  document.getElementById("rankhint").textContent=empty?"":`${viewLabel} · ${cnt}명`;
   document.getElementById("disthint").textContent=empty?"":`총 ${cnt}명`;
 
   if(empty){
     document.getElementById("podium").innerHTML="";
-    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📋</div><p><b>${cur}</b> 기록이 아직 없습니다.<br>해당 요일 시트를 채운 뒤 <b>엑셀 불러오기</b>를 누르면<br>이 화면에 자동으로 채워집니다.</p></div>`;
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📋</div><p><b>${esc(viewLabel)}</b> 기록이 아직 없습니다.<br>엑셀 시트를 채운 뒤 <b>엑셀 불러오기</b>를 누르면<br>이 화면에 자동으로 채워집니다.</p></div>`;
     renderDist(S,true); renderTable(); return;
   }
   const [p1,p2,p3]=P;
@@ -298,6 +477,7 @@ function render(){
   document.getElementById("list").innerHTML=P.map(rowHTML).join("");
   attachRows(); renderDist(S,false); renderTable(); applyFilter();
 }
+function fmtDateK(ds){ const [y,m,d]=ds.split("-"); return `${y}년 ${+m}월 ${+d}일`; }
 function pod(p,cls,m){return `<div class="pod ${cls}" data-r="${p.rank}"><div class="medal">${m}</div><div class="nm">${esc(p.player)}</div><div class="sc num">${fmt(p.score)}</div></div>`;}
 function rowHTML(p){
   const c=STAGE_COLOR[p.stage]||"var(--s1)"; const mine=p.player===MINE?" mine":""; const top=p.rank<=3?" top":"";
@@ -333,6 +513,64 @@ function applyFilter(){
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 let tT; function toast(m,kind){const t=document.getElementById("toast");t.textContent=m;t.className="toast show"+(kind==="err"?" err":"");clearTimeout(tT);tT=setTimeout(()=>t.className="toast",2800);}
 
+/* ---------- 달력 ---------- */
+let calYear, calMonth; // 현재 표시 중인 연/월(0-based month)
+const modal=document.getElementById("calModal");
+function openCalendar(){
+  const dates=Object.keys(BYDATE).sort();
+  if(dates.length){ const last=dates[dates.length-1].split("-"); calYear=+last[0]; calMonth=+last[1]-1; }
+  else { const t=new Date(); calYear=t.getFullYear(); calMonth=t.getMonth(); }
+  renderCalendar(); modal.classList.add("show");
+}
+function closeCalendar(){ modal.classList.remove("show"); }
+function calShift(delta){
+  let m=calMonth+delta, y=calYear;
+  if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+  calYear=y; calMonth=m; renderCalendar();
+}
+function renderCalendar(){
+  document.getElementById("calYM").textContent=`${calYear}년 ${calMonth+1}월`;
+  const grid=document.getElementById("calGrid"); grid.innerHTML="";
+  ["일","월","화","수","목","금","토"].forEach((d,i)=>{
+    const el=document.createElement("div");
+    el.className="cal-dow"+(i===0?" sun":i===6?" sat":"");
+    el.textContent=d; grid.appendChild(el);
+  });
+  const first=new Date(calYear,calMonth,1).getDay();
+  const ndays=new Date(calYear,calMonth+1,0).getDate();
+  for(let i=0;i<first;i++){ const p=document.createElement("div"); p.className="cal-cell pad"; grid.appendChild(p); }
+  const todayStr=new Date().toISOString().slice(0,10);
+  for(let d=1;d<=ndays;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const has=!!BYDATE[ds];
+    const cell=document.createElement("div");
+    cell.className="cal-cell"+(has?" has":"")+(curView.type==="date"&&curView.date===ds?" sel":"")+(ds===todayStr?" today":"");
+    cell.innerHTML=`${d}${has?'<span class="pt"></span>':''}`;
+    if(has) cell.onclick=()=>{ selectDate(ds); };
+    grid.appendChild(cell);
+  }
+  // 가용 달 이동 제한 (데이터 범위 ±1달까지만)
+  const dates=Object.keys(BYDATE).sort();
+  document.getElementById("calPrev").disabled=false;
+  document.getElementById("calNext").disabled=false;
+}
+function selectDate(ds){
+  curView={type:"date",date:ds};
+  closeCalendar(); render();
+  toast(fmtDateK(ds)+" 기록을 불러왔어요");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+document.getElementById("calBtn").onclick=openCalendar;
+document.getElementById("calClose").onclick=closeCalendar;
+document.getElementById("calPrev").onclick=()=>calShift(-1);
+document.getElementById("calNext").onclick=()=>calShift(1);
+document.getElementById("badgeClr").onclick=()=>{ curView={type:"day"}; render(); };
+modal.onclick=e=>{ if(e.target===modal) closeCalendar(); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeCalendar(); });
+
+/* ---------- 초기화 ---------- */
+rebuildByDate();
 buildTabs(); render();
 </script>
 </body>
