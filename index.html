@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>길드전 랭킹 대시보드 · [빌 런]착한사람들</title>
+<title>길드전 랭킹 대시보드 · [ 빌 런 ] 착한사람들</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#0c1322; --bg2:#0f192b;
@@ -32,86 +33,69 @@
   .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
   .wrap{max-width:1240px;margin:0 auto}
 
-  /* ===== Header ===== */
   header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
   .brand .eyebrow{font-size:12px;letter-spacing:.32em;color:var(--gold);font-weight:700;text-transform:uppercase}
   .brand h1{font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-.02em;margin-top:6px;line-height:1.05}
-  .brand h1 .guild{
-    background:linear-gradient(120deg,var(--gold),#ffe9a8 55%,var(--gold2));
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-  }
+  .brand h1 .guild{background:linear-gradient(120deg,var(--gold),#ffe9a8 55%,var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .brand .sub{color:var(--muted);font-size:13.5px;margin-top:8px}
+  .rightcol{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
   .datebox{text-align:right}
   .datebox .d{font-size:13px;color:var(--dim);letter-spacing:.04em}
   .datebox .v{font-size:20px;font-weight:700;margin-top:2px}
 
-  /* ===== Day tabs ===== */
-  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);
-        border-radius:14px;padding:6px;margin-bottom:22px;overflow-x:auto}
-  .tab{flex:1;min-width:74px;border:0;background:transparent;color:var(--muted);
-       font-family:inherit;font-size:15px;font-weight:700;padding:11px 6px;border-radius:9px;
-       cursor:pointer;transition:.18s;position:relative;white-space:nowrap}
-  .tab:hover{color:var(--tx);background:rgba(255,255,255,.04)}
-  .tab.active{color:#1a1206;background:linear-gradient(135deg,var(--gold),var(--gold2));
-              box-shadow:0 6px 18px -6px rgba(244,196,81,.6)}
-  .tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mine);
-            margin-left:6px;vertical-align:middle}
-  .tab.empty{color:var(--dim)}
-  .tab.empty .dot{background:var(--dim);opacity:.5}
+  .loadbtn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));
+    color:#1a1206;font-family:inherit;font-size:13.5px;font-weight:800;border:0;border-radius:10px;
+    padding:10px 16px;cursor:pointer;box-shadow:0 8px 20px -8px rgba(244,196,81,.6);transition:.15s}
+  .loadbtn:hover{transform:translateY(-1px)}
+  .loadnote{font-size:11.5px;color:var(--dim);text-align:right;max-width:280px}
+  .loadnote b{color:var(--mine)}
 
-  /* ===== KPIs ===== */
+  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;margin-bottom:22px;overflow-x:auto}
+  .tab{flex:1;min-width:74px;border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:15px;font-weight:700;padding:11px 6px;border-radius:9px;cursor:pointer;transition:.18s;white-space:nowrap}
+  .tab:hover{color:var(--tx);background:rgba(255,255,255,.04)}
+  .tab.active{color:#1a1206;background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 6px 18px -6px rgba(244,196,81,.6)}
+  .tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mine);margin-left:6px;vertical-align:middle}
+  .tab.empty{color:var(--dim)} .tab.empty .dot{background:var(--dim);opacity:.5}
+
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-  .kpi{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
-       border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
+  .kpi{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
   .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold)}
   .kpi.b::before{background:var(--s4)} .kpi.c::before{background:var(--s6)} .kpi.d::before{background:var(--s9)}
-  .kpi .lab{font-size:12.5px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  .kpi .lab{font-size:12.5px;color:var(--muted);font-weight:600}
   .kpi .val{font-size:clamp(22px,3vw,30px);font-weight:800;margin-top:7px;letter-spacing:-.02em;line-height:1}
   .kpi .meta{font-size:12px;color:var(--dim);margin-top:7px}
 
-  /* ===== Layout ===== */
   .grid{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  .card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;
-          padding:16px 20px;border-bottom:1px solid var(--line)}
+  .card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
   .card-h h2{font-size:15px;font-weight:800;letter-spacing:-.01em}
   .card-h .hint{font-size:12px;color:var(--dim)}
 
-  /* search */
   .search{position:relative;width:190px}
-  .search input{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);
-    font-family:inherit;font-size:13px;border-radius:9px;padding:8px 10px 8px 30px;outline:none}
+  .search input{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;border-radius:9px;padding:8px 10px 8px 30px;outline:none}
   .search input:focus{border-color:var(--gold)}
   .search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:.5}
 
-  /* ===== Podium ===== */
   .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:12px;padding:20px;align-items:end}
-  .pod{border-radius:14px;padding:16px 14px;text-align:center;position:relative;
-       border:1px solid var(--line2);background:var(--panel2);cursor:pointer;transition:.2s}
+  .pod{border-radius:14px;padding:16px 14px;text-align:center;position:relative;border:1px solid var(--line2);background:var(--panel2);cursor:pointer;transition:.2s}
   .pod:hover{transform:translateY(-3px)}
-  .pod .medal{font-size:24px;font-weight:900;width:42px;height:42px;line-height:42px;border-radius:50%;
-              margin:0 auto 10px;color:#1a1206}
-  .pod.g{background:linear-gradient(180deg,rgba(244,196,81,.18),rgba(244,196,81,.04));
-         border-color:rgba(244,196,81,.5);padding-top:26px;padding-bottom:26px}
+  .pod .medal{font-size:24px;font-weight:900;width:42px;height:42px;line-height:42px;border-radius:50%;margin:0 auto 10px;color:#1a1206}
+  .pod.g{background:linear-gradient(180deg,rgba(244,196,81,.18),rgba(244,196,81,.04));border-color:rgba(244,196,81,.5);padding-top:26px;padding-bottom:26px}
   .pod.g .medal{background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 8px 22px -8px rgba(244,196,81,.8)}
   .pod.s{background:linear-gradient(180deg,rgba(195,208,234,.14),rgba(195,208,234,.03));border-color:rgba(195,208,234,.45)}
   .pod.s .medal{background:linear-gradient(135deg,var(--silver),var(--silver2))}
   .pod.br{background:linear-gradient(180deg,rgba(220,146,85,.15),rgba(220,146,85,.03));border-color:rgba(220,146,85,.45)}
   .pod.br .medal{background:linear-gradient(135deg,var(--bronze),var(--bronze2))}
-  .pod .nm{font-size:13.5px;font-weight:700;line-height:1.3;min-height:2.6em;
-           display:flex;align-items:center;justify-content:center;word-break:keep-all}
+  .pod .nm{font-size:13.5px;font-weight:700;line-height:1.3;min-height:2.6em;display:flex;align-items:center;justify-content:center;word-break:keep-all}
   .pod .sc{font-size:clamp(15px,2vw,19px);font-weight:800;margin-top:8px;letter-spacing:-.02em}
   .pod.g .sc{color:var(--gold)} .pod.s .sc{color:var(--silver)} .pod.br .sc{color:var(--bronze)}
 
-  /* ===== List ===== */
   .list{max-height:560px;overflow-y:auto}
   .list::-webkit-scrollbar{width:8px}
   .list::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
-  .row{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;
-       padding:12px 20px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  .row{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
   .row:hover{background:rgba(255,255,255,.035)}
-  .row.mine{background:linear-gradient(90deg,rgba(70,207,134,.16),rgba(70,207,134,.03));
-            box-shadow:inset 3px 0 0 var(--mine)}
+  .row.mine{background:linear-gradient(90deg,rgba(70,207,134,.16),rgba(70,207,134,.03));box-shadow:inset 3px 0 0 var(--mine)}
   .row.hit{background:rgba(244,196,81,.13);box-shadow:inset 3px 0 0 var(--gold)}
   .rk{font-size:15px;font-weight:800;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
   .row.top .rk{color:var(--gold)}
@@ -121,38 +105,33 @@
   .info .pg .me{color:var(--mine);font-weight:700}
   .sright{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
   .sright .scv{font-size:15px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  .tag{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:.02em}
+  .tag{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px}
 
-  /* ===== Right column ===== */
   .stack{display:flex;flex-direction:column;gap:20px}
   .dist{padding:16px 20px 20px}
   .drow{display:grid;grid-template-columns:46px 1fr 34px;align-items:center;gap:10px;margin-bottom:9px}
   .drow .dl{font-size:12.5px;font-weight:700;color:var(--muted)}
-  .bar{height:18px;border-radius:6px;background:rgba(255,255,255,.05);overflow:hidden;position:relative}
+  .bar{height:18px;border-radius:6px;background:rgba(255,255,255,.05);overflow:hidden}
   .bar i{display:block;height:100%;border-radius:6px;transition:width .7s cubic-bezier(.2,.8,.2,1)}
   .drow .dc{font-size:12.5px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
   .drow.zero{opacity:.4}
-
   .stbl{padding:6px 0 8px}
   .strow{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;padding:8px 20px}
   .strow .sb{font-size:12px;font-weight:800;padding:3px 0;border-radius:6px;text-align:center;color:#0c1322}
   .strow .sr{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 
-  /* empty */
   .empty-state{padding:60px 20px;text-align:center;color:var(--dim)}
   .empty-state .ico{font-size:40px;opacity:.5;margin-bottom:12px}
   .empty-state p{font-size:14px;line-height:1.6}
   .foot{text-align:center;color:var(--dim);font-size:11.5px;margin-top:28px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--raised);
+    border:1px solid var(--line2);color:var(--tx);font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:12px;
+    box-shadow:0 12px 30px -8px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{border-color:var(--s9)}
 
-  @media(max-width:900px){
-    .grid{grid-template-columns:1fr}
-    .kpis{grid-template-columns:repeat(2,1fr)}
-  }
-  @media(max-width:520px){
-    .podium{grid-template-columns:1fr;gap:10px}
-    .pod.g{order:-1}
-    .search{width:140px}
-  }
+  @media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.podium{grid-template-columns:1fr;gap:10px}.pod.g{order:-1}.search{width:140px}.rightcol{align-items:flex-start}}
 </style>
 </head>
 <body>
@@ -160,16 +139,14 @@
   <header>
     <div class="brand">
       <div class="eyebrow">Guild War · Ranking</div>
-      <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
-      <!-- 2. 프리텐다드 폰트 + [ ] 괄호 축소까지 모두 적용된 h1 태그 -->
-      <h1 style="font-family: 'Pretendard Variable', Pretendard, sans-serif; letter-spacing: -0.3px;">
-      길드전 랭킹 <span class="guild"><span style="font-size: 0.7em; letter-spacing: -2px;">[</span> 빌 런 <span style="font-size: 0.7em; letter-spacing: -2px;">]</span>착한사람들</span>
-      </h1>
+      <h1>길드전 랭킹 <span class="guild">[ 빌 런 ] 착한사람들</span></h1>
       <div class="sub">요일별 랭킹 포인트 · 점수 기준 단계 자동 분류</div>
     </div>
-    <div class="datebox">
-      <div class="d">집계 기준일</div>
-      <div class="v num">2026.06.16</div>
+    <div class="rightcol">
+      <button class="loadbtn" id="loadBtn">📂 엑셀 불러오기</button>
+      <input type="file" id="fileIn" accept=".xlsx,.xlsm" style="display:none">
+      <div class="datebox"><div class="d" id="srcLabel">집계 기준일</div><div class="v num" id="dateVal">2026.06.16</div></div>
+      <div class="loadnote">화·수·목 데이터가 생기면 같은 엑셀을 갱신 후 <b>불러오기</b>만 하면 자동 반영돼요</div>
     </div>
   </header>
 
@@ -188,152 +165,177 @@
       <div id="podium"></div>
       <div class="list" id="list"></div>
     </div>
-
     <div class="stack">
-      <div class="card">
-        <div class="card-h"><h2>단계별 인원 분포</h2><span class="hint" id="disthint"></span></div>
-        <div class="dist" id="dist"></div>
-      </div>
-      <div class="card">
-        <div class="card-h"><h2>단계 기준표</h2><span class="hint">점수 → 단계</span></div>
-        <div class="stbl" id="stbl"></div>
-      </div>
+      <div class="card"><div class="card-h"><h2>단계별 인원 분포</h2><span class="hint" id="disthint"></span></div><div class="dist" id="dist"></div></div>
+      <div class="card"><div class="card-h"><h2>단계 기준표</h2><span class="hint">점수 → 단계</span></div><div class="stbl" id="stbl"></div></div>
     </div>
   </div>
-
-  <div class="foot">길드전_랭킹포인트_26_06_16.xlsx · 데이터가 입력된 요일을 선택하세요</div>
+  <div class="foot" id="foot">길드전_랭킹포인트_26_06_16.xlsx · 데이터가 입력된 요일을 선택하세요</div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
-const DATA = {"days":{"월요일":{"players":[{"rank":1,"player":"떪은홍시","score":76513151,"stage":"9단계"},{"rank":2,"player":"Lv100 배회하는 좀비","score":62254586,"stage":"9단계"},{"rank":3,"player":"뮤지컬보러가서노래따라부르는놈","score":36598969,"stage":"9단계"},{"rank":4,"player":"독여울","score":26859795,"stage":"9단계"},{"rank":5,"player":"스무디에얼음빼주세요","score":22027625,"stage":"9단계"},{"rank":6,"player":"독화살","score":19336746,"stage":"9단계"},{"rank":7,"player":"-프리저-","score":17008882,"stage":"9단계"},{"rank":8,"player":"왜요뭐","score":16620269,"stage":"9단계"},{"rank":9,"player":"빨강맛","score":15971399,"stage":"9단계"},{"rank":10,"player":"별빛여신","score":15579579,"stage":"9단계"},{"rank":11,"player":"떠들어봐안들린다","score":15166835,"stage":"9단계"},{"rank":12,"player":"진짜한입만나못믿니","score":15136017,"stage":"9단계"},{"rank":13,"player":"독거노인춘삼","score":15045625,"stage":"9단계"},{"rank":14,"player":"아크으","score":11929975,"stage":"9단계"},{"rank":15,"player":"독건담","score":11703867,"stage":"9단계"},{"rank":16,"player":"아사히","score":11641804,"stage":"9단계"},{"rank":17,"player":"영화관에서결말스포한냔","score":11224132,"stage":"9단계"},{"rank":18,"player":"미녀와야자수","score":11128193,"stage":"9단계"},{"rank":19,"player":"독방구핑","score":10907771,"stage":"9단계"},{"rank":20,"player":"뉴스나온그사람","score":10606882,"stage":"9단계"},{"rank":21,"player":"니면상시베리아","score":10422796,"stage":"9단계"},{"rank":22,"player":"모어쩌라고","score":10412768,"stage":"9단계"},{"rank":23,"player":"빡센공주","score":10128124,"stage":"9단계"},{"rank":24,"player":"할말있는데나중에말해줌","score":9706739,"stage":"9단계"},{"rank":25,"player":"명령하디마라","score":9164119,"stage":"9단계"},{"rank":26,"player":"독수리골드","score":8999382,"stage":"9단계"},{"rank":27,"player":"습격이다개스키야","score":8596217,"stage":"9단계"},{"rank":28,"player":"독과점","score":8456726,"stage":"9단계"},{"rank":29,"player":"독잉교","score":8220352,"stage":"9단계"},{"rank":30,"player":"해녀도앤댈리는뒈","score":8154156,"stage":"9단계"},{"rank":31,"player":"훔쳐뿟노","score":8127020,"stage":"9단계"},{"rank":32,"player":"쉰데렐라","score":7952273,"stage":"9단계"},{"rank":33,"player":"앞니로조사버리는토끼","score":7918857,"stage":"9단계"},{"rank":34,"player":"핑도노·훔치고·생각하는·편","score":7909501,"stage":"9단계"},{"rank":35,"player":"독철이","score":7876636,"stage":"9단계"},{"rank":36,"player":"베놈이마깐데또까","score":7824653,"stage":"9단계"},{"rank":37,"player":"독로이지","score":7823884,"stage":"9단계"},{"rank":38,"player":"독독쿠롱","score":7679597,"stage":"9단계"},{"rank":39,"player":"이런들어떠하리저런들어떠하리","score":7635056,"stage":"9단계"},{"rank":40,"player":"숲속모텔","score":7579677,"stage":"9단계"},{"rank":41,"player":"현금만받아","score":7552044,"stage":"9단계"},{"rank":42,"player":"독후감상문","score":7462230,"stage":"9단계"},{"rank":43,"player":"괴도하미","score":7423633,"stage":"9단계"},{"rank":44,"player":"독한다람쥐","score":7327050,"stage":"9단계"},{"rank":45,"player":"여썰고","score":6678842,"stage":"8단계"},{"rank":46,"player":"라면주면갈께","score":6177989,"stage":"8단계"},{"rank":47,"player":"단추가게","score":5901298,"stage":"8단계"},{"rank":48,"player":"독골골","score":5097585,"stage":"8단계"},{"rank":49,"player":"독눈누눈누","score":5036088,"stage":"8단계"},{"rank":50,"player":"엘베닫힘연타범","score":4821347,"stage":"8단계"},{"rank":51,"player":"티거Ya드랍더튀어","score":4599953,"stage":"8단계"},{"rank":52,"player":"독그릭","score":4332112,"stage":"8단계"},{"rank":53,"player":"독한월요일병","score":4235009,"stage":"8단계"},{"rank":54,"player":"눈밑에점찍고돌아온아내","score":4226803,"stage":"8단계"},{"rank":55,"player":"안톤 쉬거","score":3992666,"stage":"8단계"},{"rank":56,"player":"자르반84세","score":3935236,"stage":"8단계"},{"rank":57,"player":"독고독","score":3819189,"stage":"8단계"},{"rank":58,"player":"주니쯤","score":2896389,"stage":"8단계"},{"rank":59,"player":"독팡팡","score":2645896,"stage":"8단계"},{"rank":60,"player":"1090","score":2195612,"stage":"6단계"},{"rank":61,"player":"독아윤","score":1908787,"stage":"6단계"},{"rank":62,"player":"독삼미","score":1890847,"stage":"6단계"},{"rank":63,"player":"독터키캔씨Turkey1881","score":1772463,"stage":"6단계"},{"rank":64,"player":"독이즈","score":1472500,"stage":"6단계"},{"rank":65,"player":"독주","score":1425274,"stage":"6단계"},{"rank":66,"player":"린이","score":1226829,"stage":"6단계"},{"rank":67,"player":"수색맨","score":460000,"stage":"3단계"}],"summary":{"9단계":44,"8단계":15,"7단계":0,"6단계":7,"5단계":0,"4단계":0,"3단계":1,"2단계":0,"1단계":0,"총 인원":67,"총 점수":714364306}},"화요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"수요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"목요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"금요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"토요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}}},"stages":[{"min":0,"stage":"1단계","range":"0 ~ 38,000"},{"min":38001,"stage":"2단계","range":"38,001 ~ 145,000"},{"min":145001,"stage":"3단계","range":"145,001 ~ 550,000"},{"min":550001,"stage":"4단계","range":"550,001 ~ 650,000"},{"min":650001,"stage":"5단계","range":"650,001 ~ 1,020,000"},{"min":1020001,"stage":"6단계","range":"1,020,001 ~ 2,280,000"},{"min":2280001,"stage":"7단계","range":"2,280,001 ~ 2,630,000"},{"min":2630001,"stage":"8단계","range":"2,630,001 ~ 7,189,999"},{"min":7190000,"stage":"9단계","range":"7,190,000 이상"}]};
+let DATA = {"days":{"월요일":{"players":[{"rank":1,"player":"떪은홍시","score":76513151,"stage":"9단계"},{"rank":2,"player":"Lv100 배회하는 좀비","score":62254586,"stage":"9단계"},{"rank":3,"player":"뮤지컬보러가서노래따라부르는놈","score":36598969,"stage":"9단계"},{"rank":4,"player":"독여울","score":26859795,"stage":"9단계"},{"rank":5,"player":"스무디에얼음빼주세요","score":22027625,"stage":"9단계"},{"rank":6,"player":"독화살","score":19336746,"stage":"9단계"},{"rank":7,"player":"-프리저-","score":17008882,"stage":"9단계"},{"rank":8,"player":"왜요뭐","score":16620269,"stage":"9단계"},{"rank":9,"player":"빨강맛","score":15971399,"stage":"9단계"},{"rank":10,"player":"별빛여신","score":15579579,"stage":"9단계"},{"rank":11,"player":"떠들어봐안들린다","score":15166835,"stage":"9단계"},{"rank":12,"player":"진짜한입만나못믿니","score":15136017,"stage":"9단계"},{"rank":13,"player":"독거노인춘삼","score":15045625,"stage":"9단계"},{"rank":14,"player":"아크으","score":11929975,"stage":"9단계"},{"rank":15,"player":"독건담","score":11703867,"stage":"9단계"},{"rank":16,"player":"아사히","score":11641804,"stage":"9단계"},{"rank":17,"player":"영화관에서결말스포한냔","score":11224132,"stage":"9단계"},{"rank":18,"player":"미녀와야자수","score":11128193,"stage":"9단계"},{"rank":19,"player":"독방구핑","score":10907771,"stage":"9단계"},{"rank":20,"player":"뉴스나온그사람","score":10606882,"stage":"9단계"},{"rank":21,"player":"니면상시베리아","score":10422796,"stage":"9단계"},{"rank":22,"player":"모어쩌라고","score":10412768,"stage":"9단계"},{"rank":23,"player":"빡센공주","score":10128124,"stage":"9단계"},{"rank":24,"player":"할말있는데나중에말해줌","score":9706739,"stage":"9단계"},{"rank":25,"player":"명령하디마라","score":9164119,"stage":"9단계"},{"rank":26,"player":"독수리골드","score":8999382,"stage":"9단계"},{"rank":27,"player":"습격이다개스키야","score":8596217,"stage":"9단계"},{"rank":28,"player":"독과점","score":8456726,"stage":"9단계"},{"rank":29,"player":"독잉교","score":8220352,"stage":"9단계"},{"rank":30,"player":"해녀도앤댈리는뒈","score":8154156,"stage":"9단계"},{"rank":31,"player":"훔쳐뿟노","score":8127020,"stage":"9단계"},{"rank":32,"player":"쉰데렐라","score":7952273,"stage":"9단계"},{"rank":33,"player":"앞니로조사버리는토끼","score":7918857,"stage":"9단계"},{"rank":34,"player":"핑도노·훔치고·생각하는·편","score":7909501,"stage":"9단계"},{"rank":35,"player":"독철이","score":7876636,"stage":"9단계"},{"rank":36,"player":"베놈이마깐데또까","score":7824653,"stage":"9단계"},{"rank":37,"player":"독로이지","score":7823884,"stage":"9단계"},{"rank":38,"player":"독독쿠롱","score":7679597,"stage":"9단계"},{"rank":39,"player":"이런들어떠하리저런들어떠하리","score":7635056,"stage":"9단계"},{"rank":40,"player":"숲속모텔","score":7579677,"stage":"9단계"},{"rank":41,"player":"현금만받아","score":7552044,"stage":"9단계"},{"rank":42,"player":"독후감상문","score":7462230,"stage":"9단계"},{"rank":43,"player":"괴도하미","score":7423633,"stage":"9단계"},{"rank":44,"player":"독한다람쥐","score":7327050,"stage":"9단계"},{"rank":45,"player":"여썰고","score":6678842,"stage":"8단계"},{"rank":46,"player":"라면주면갈께","score":6177989,"stage":"8단계"},{"rank":47,"player":"단추가게","score":5901298,"stage":"8단계"},{"rank":48,"player":"독골골","score":5097585,"stage":"8단계"},{"rank":49,"player":"독눈누눈누","score":5036088,"stage":"8단계"},{"rank":50,"player":"엘베닫힘연타범","score":4821347,"stage":"8단계"},{"rank":51,"player":"티거Ya드랍더튀어","score":4599953,"stage":"8단계"},{"rank":52,"player":"독그릭","score":4332112,"stage":"8단계"},{"rank":53,"player":"독한월요일병","score":4235009,"stage":"8단계"},{"rank":54,"player":"눈밑에점찍고돌아온아내","score":4226803,"stage":"8단계"},{"rank":55,"player":"안톤 쉬거","score":3992666,"stage":"8단계"},{"rank":56,"player":"자르반84세","score":3935236,"stage":"8단계"},{"rank":57,"player":"독고독","score":3819189,"stage":"8단계"},{"rank":58,"player":"주니쯤","score":2896389,"stage":"8단계"},{"rank":59,"player":"독팡팡","score":2645896,"stage":"8단계"},{"rank":60,"player":"1090","score":2195612,"stage":"6단계"},{"rank":61,"player":"독아윤","score":1908787,"stage":"6단계"},{"rank":62,"player":"독삼미","score":1890847,"stage":"6단계"},{"rank":63,"player":"독터키캔씨Turkey1881","score":1772463,"stage":"6단계"},{"rank":64,"player":"독이즈","score":1472500,"stage":"6단계"},{"rank":65,"player":"독주","score":1425274,"stage":"6단계"},{"rank":66,"player":"린이","score":1226829,"stage":"6단계"},{"rank":67,"player":"수색맨","score":460000,"stage":"3단계"}],"summary":{"9단계":44,"8단계":15,"7단계":0,"6단계":7,"5단계":0,"4단계":0,"3단계":1,"2단계":0,"1단계":0,"총 인원":67,"총 점수":714364306}},"화요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"수요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"목요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"금요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}},"토요일":{"players":[],"summary":{"9단계":0,"8단계":0,"7단계":0,"6단계":0,"5단계":0,"4단계":0,"3단계":0,"2단계":0,"1단계":0,"총 인원":0,"총 점수":0}}},"stages":[{"min":0,"stage":"1단계","range":"0 ~ 38,000"},{"min":38001,"stage":"2단계","range":"38,001 ~ 145,000"},{"min":145001,"stage":"3단계","range":"145,001 ~ 550,000"},{"min":550001,"stage":"4단계","range":"550,001 ~ 650,000"},{"min":650001,"stage":"5단계","range":"650,001 ~ 1,020,000"},{"min":1020001,"stage":"6단계","range":"1,020,001 ~ 2,280,000"},{"min":2280001,"stage":"7단계","range":"2,280,001 ~ 2,630,000"},{"min":2630001,"stage":"8단계","range":"2,630,001 ~ 7,189,999"},{"min":7190000,"stage":"9단계","range":"7,190,000 이상"}]};
 const DAYS=["월요일","화요일","수요일","목요일","금요일","토요일"];
+const STAGE_NAMES=["1단계","2단계","3단계","4단계","5단계","6단계","7단계","8단계","9단계"];
 const STAGE_COLOR={"9단계":"var(--s9)","8단계":"var(--s8)","7단계":"var(--s7)","6단계":"var(--s6)","5단계":"var(--s5)","4단계":"var(--s4)","3단계":"var(--s3)","2단계":"var(--s2)","1단계":"var(--s1)"};
-const MINE="할말있는데나중에말해줌";   // 내 캐릭터(스샷 초록 행)
+const MINE="할말있는데나중에말해줌";
 let cur="월요일";
-const fmt=n=>n.toLocaleString("ko-KR");
+const fmt=n=>Number(n).toLocaleString("ko-KR");
 const abbr=n=> n>=1e8? (n/1e8).toFixed(2)+"억" : n>=1e4? Math.round(n/1e4).toLocaleString()+"만" : fmt(n);
 
-// tabs
+/* ---------- 엑셀 파싱 (브라우저, SheetJS) ---------- */
+document.getElementById("loadBtn").onclick=()=>document.getElementById("fileIn").click();
+document.getElementById("fileIn").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+      const parsed=parseWorkbook(wb);
+      if(parsed.totalPlayers===0){toast("플레이어 데이터를 찾지 못했어요. 시트 형식을 확인해 주세요.","err");return;}
+      DATA=parsed.data;
+      // 데이터 있는 첫 요일로 이동
+      cur = DAYS.find(d=>DATA.days[d]&&DATA.days[d].players.length>0) || "월요일";
+      document.getElementById("srcLabel").textContent="불러온 파일";
+      document.getElementById("dateVal").textContent=f.name.replace(/\.(xlsx|xlsm)$/i,"");
+      document.getElementById("foot").textContent=f.name+" · 브라우저에서 직접 읽음";
+      buildTabs(); render();
+      toast("불러오기 완료 · 데이터가 있는 요일 "+parsed.filledDays.length+"개 반영");
+    }catch(err){console.error(err);toast("엑셀을 읽는 중 오류가 발생했어요.","err");}
+  };
+  r.readAsArrayBuffer(f);
+  e.target.value="";
+};
+
+function parseWorkbook(wb){
+  const out={days:{},stages:[]};
+  let totalPlayers=0; const filledDays=[];
+  DAYS.forEach(name=>{
+    const players=[], summary={};
+    const ws=wb.Sheets[name];
+    if(ws){
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+      // 데이터 행: B(idx1)=순위, C(idx2)=플레이어, D(idx3)=점수, E(idx4)=단계
+      rows.forEach(row=>{
+        if(!row) return;
+        const rk=row[1], pl=row[2], sc=row[3], st=row[4];
+        if(typeof rk==="number" && pl && (typeof sc==="number")){
+          players.push({rank:rk,player:String(pl).trim(),score:sc,stage:st?String(st).trim():stageFromScore(sc,out.stages)});
+        }
+        // 요약 블록: G(idx6)=라벨, H(idx7)=값
+        const lab=row[6], val=row[7];
+        if(lab!=null && typeof val==="number"){ summary[String(lab).trim()]=val; }
+      });
+    }
+    // 요약이 비어있으면 직접 계산
+    if(players.length){
+      filledDays.push(name); totalPlayers+=players.length;
+      if(!("총 인원" in summary)){
+        STAGE_NAMES.forEach(s=>summary[s]=players.filter(p=>p.stage===s).length);
+        summary["총 인원"]=players.length;
+        summary["총 점수"]=players.reduce((a,p)=>a+p.score,0);
+      }
+    } else {
+      STAGE_NAMES.forEach(s=>summary[s]=summary[s]||0);
+      summary["총 인원"]=summary["총 인원"]||0; summary["총 점수"]=summary["총 점수"]||0;
+    }
+    out.days[name]={players,summary};
+  });
+  // 기준표
+  const kb=wb.Sheets["기준표"];
+  if(kb){
+    const rows=XLSX.utils.sheet_to_json(kb,{header:1,raw:true,defval:null});
+    rows.forEach(row=>{
+      if(!row) return;
+      const mn=row[1], st=row[2], rg=row[3];
+      if(typeof mn==="number" && st && String(st).includes("단계")){
+        out.stages.push({min:mn,stage:String(st).trim(),range:rg?String(rg).trim():""});
+      }
+    });
+  }
+  if(!out.stages.length) out.stages = (DATA.stages||[]);
+  return {data:out,totalPlayers,filledDays};
+}
+function stageFromScore(sc,stages){
+  if(!stages||!stages.length) return null;
+  let cur=stages[0].stage;
+  for(const s of stages){ if(sc>=s.min) cur=s.stage; }
+  return cur;
+}
+
+/* ---------- 렌더 ---------- */
 const tabsEl=document.getElementById("tabs");
-DAYS.forEach(d=>{
-  const has=DATA.days[d].players.length>0;
-  const b=document.createElement("button");
-  b.className="tab"+(has?"":" empty")+(d===cur?" active":"");
-  b.innerHTML=d.replace("요일","")+(has?'<span class="dot"></span>':'');
-  b.onclick=()=>{cur=d;document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));b.classList.add("active");render();};
-  tabsEl.appendChild(b);
-});
+function buildTabs(){
+  tabsEl.innerHTML="";
+  DAYS.forEach(d=>{
+    const has=DATA.days[d]&&DATA.days[d].players.length>0;
+    const b=document.createElement("button");
+    b.className="tab"+(has?"":" empty")+(d===cur?" active":"");
+    b.innerHTML=d.replace("요일","")+(has?'<span class="dot"></span>':'');
+    b.onclick=()=>{cur=d;document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));b.classList.add("active");render();};
+    tabsEl.appendChild(b);
+  });
+}
 
 function render(){
-  const day=DATA.days[cur];
-  const P=day.players, S=day.summary;
-  const empty=P.length===0;
-
-  // KPIs
-  const total=S["총 점수"]||0, cnt=S["총 인원"]||0;
-  const avg=cnt?Math.round(total/cnt):0;
-  const top=P[0];
+  const day=DATA.days[cur]; const P=day.players, S=day.summary; const empty=P.length===0;
+  const total=S["총 점수"]||0, cnt=S["총 인원"]||0, avg=cnt?Math.round(total/cnt):0, top=P[0];
   document.getElementById("kpis").innerHTML=`
     <div class="kpi"><div class="lab">총 랭킹 포인트</div><div class="val num">${empty?"—":abbr(total)}</div><div class="meta num">${empty?"데이터 없음":fmt(total)+" P"}</div></div>
     <div class="kpi b"><div class="lab">참여 인원</div><div class="val num">${empty?"—":cnt}<span style="font-size:14px;color:var(--dim)"> 명</span></div><div class="meta">길드원 기록</div></div>
     <div class="kpi c"><div class="lab">평균 포인트</div><div class="val num">${empty?"—":abbr(avg)}</div><div class="meta num">${empty?"":fmt(avg)+" P"}</div></div>
-    <div class="kpi d"><div class="lab">1위 점수</div><div class="val num">${empty?"—":abbr(top.score)}</div><div class="meta">${empty?"":top.player}</div></div>`;
-
+    <div class="kpi d"><div class="lab">1위 점수</div><div class="val num">${empty?"—":abbr(top.score)}</div><div class="meta">${empty?"":esc(top.player)}</div></div>`;
   document.getElementById("rankhint").textContent=empty?"":`${cur} · ${cnt}명`;
   document.getElementById("disthint").textContent=empty?"":`총 ${cnt}명`;
 
-  // empty state
   if(empty){
     document.getElementById("podium").innerHTML="";
-    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📋</div><p><b>${cur}</b> 기록이 아직 없습니다.<br>해당 요일 랭킹 스크린샷을 입력하면<br>이 화면에 자동으로 채워집니다.</p></div>`;
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📋</div><p><b>${cur}</b> 기록이 아직 없습니다.<br>해당 요일 시트를 채운 뒤 <b>엑셀 불러오기</b>를 누르면<br>이 화면에 자동으로 채워집니다.</p></div>`;
     renderDist(S,true); renderTable(); return;
   }
-
-  // podium (2-1-3 order)
   const [p1,p2,p3]=P;
-  document.getElementById("podium").innerHTML=`<div class="podium">
-    ${pod(p2,"s","2")}${pod(p1,"g","1")}${pod(p3,"br","3")}</div>`;
-  document.querySelectorAll(".pod").forEach(el=>el.onclick=()=>scrollTo(el.dataset.r));
-
-  // list
+  document.getElementById("podium").innerHTML=`<div class="podium">${pod(p2,"s","2")}${pod(p1,"g","1")}${pod(p3,"br","3")}</div>`;
+  document.querySelectorAll(".pod").forEach(el=>el.onclick=()=>scrollToRank(el.dataset.r));
   document.getElementById("list").innerHTML=P.map(rowHTML).join("");
-  attachRows();
-  renderDist(S,false);
-  renderTable();
-  applyFilter();
+  attachRows(); renderDist(S,false); renderTable(); applyFilter();
 }
-
-function pod(p,cls,m){
-  return `<div class="pod ${cls}" data-r="${p.rank}">
-    <div class="medal">${m}</div>
-    <div class="nm">${esc(p.player)}</div>
-    <div class="sc num">${fmt(p.score)}</div></div>`;
-}
-
+function pod(p,cls,m){return `<div class="pod ${cls}" data-r="${p.rank}"><div class="medal">${m}</div><div class="nm">${esc(p.player)}</div><div class="sc num">${fmt(p.score)}</div></div>`;}
 function rowHTML(p){
-  const c=STAGE_COLOR[p.stage]||"var(--s1)";
-  const mine=p.player===MINE?" mine":"";
-  const top=p.rank<=3?" top":"";
+  const c=STAGE_COLOR[p.stage]||"var(--s1)"; const mine=p.player===MINE?" mine":""; const top=p.rank<=3?" top":"";
   return `<div class="row${top}${mine}" data-r="${p.rank}" data-n="${esc(p.player)}">
     <div class="rk num">${p.rank}</div>
-    <div class="info">
-      <div class="pn">${esc(p.player)}</div>
-      <div class="pg">[ 빌 런 ]착한사람들${mine?' · <span class="me">내 기록</span>':''}</div>
-    </div>
-    <div class="sright">
-      <div class="scv num">${fmt(p.score)}</div>
-      <div class="tag" style="background:${c}22;color:${c}">${p.stage||"-"}</div>
-    </div></div>`;
+    <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg">[빌 런]착한사람들${mine?' · <span class="me">내 기록</span>':''}</div></div>
+    <div class="sright"><div class="scv num">${fmt(p.score)}</div><div class="tag" style="background:${c}22;color:${c}">${esc(p.stage||"-")}</div></div></div>`;
 }
-
 function renderDist(S,empty){
   const max=Math.max(1,...DATA.stages.map(s=>S[s.stage]||0));
-  const html=[...DATA.stages].reverse().map(s=>{
-    const v=S[s.stage]||0;
-    const c=STAGE_COLOR[s.stage];
-    const w=empty?0:(v/max*100);
-    return `<div class="drow${v===0?" zero":""}">
-      <div class="dl">${s.stage}</div>
-      <div class="bar"><i style="width:${w}%;background:${c}"></i></div>
-      <div class="dc num" style="color:${v?c:'var(--dim)'}">${v}</div></div>`;
+  document.getElementById("dist").innerHTML=[...DATA.stages].reverse().map(s=>{
+    const v=S[s.stage]||0,c=STAGE_COLOR[s.stage],w=empty?0:(v/max*100);
+    return `<div class="drow${v===0?" zero":""}"><div class="dl">${s.stage}</div><div class="bar"><i style="width:${w}%;background:${c}"></i></div><div class="dc num" style="color:${v?c:'var(--dim)'}">${v}</div></div>`;
   }).join("");
-  document.getElementById("dist").innerHTML=html;
 }
-
 function renderTable(){
   document.getElementById("stbl").innerHTML=[...DATA.stages].reverse().map(s=>{
     const c=STAGE_COLOR[s.stage];
-    return `<div class="strow">
-      <div class="sb" style="background:${c}">${s.stage}</div>
-      <div class="sr">${s.range}</div></div>`;
+    return `<div class="strow"><div class="sb" style="background:${c}">${s.stage}</div><div class="sr">${esc(s.range)}</div></div>`;
   }).join("");
 }
+function attachRows(){document.querySelectorAll(".list .row").forEach(el=>el.onclick=()=>el.classList.toggle("hit"));}
+function scrollToRank(rank){const el=document.querySelector(`.list .row[data-r="${rank}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),1600);}}
 
-function attachRows(){
-  document.querySelectorAll(".list .row").forEach(el=>{
-    el.onclick=()=>{ el.classList.toggle("hit"); };
-  });
-}
-function scrollTo(rank){
-  const el=document.querySelector(`.list .row[data-r="${rank}"]`);
-  if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("hit");
-    setTimeout(()=>el.classList.remove("hit"),1600);}
-}
-
-const qEl=document.getElementById("q");
-qEl.oninput=applyFilter;
+const qEl=document.getElementById("q"); qEl.oninput=applyFilter;
 function applyFilter(){
   const q=qEl.value.trim().toLowerCase();
   document.querySelectorAll(".list .row").forEach(el=>{
-    const n=el.dataset.n.toLowerCase();
-    const show=!q||n.includes(q);
-    el.style.display=show?"":"none";
-    el.classList.toggle("hit", q&&show);
+    const show=!q||el.dataset.n.toLowerCase().includes(q);
+    el.style.display=show?"":"none"; el.classList.toggle("hit",q&&show);
   });
 }
-
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-render();
+let tT; function toast(m,kind){const t=document.getElementById("toast");t.textContent=m;t.className="toast show"+(kind==="err"?" err":"");clearTimeout(tT);tT=setTimeout(()=>t.className="toast",2800);}
+
+buildTabs(); render();
 </script>
 </body>
 </html>
