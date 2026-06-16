@@ -311,9 +311,10 @@ document.getElementById("fileIn").onchange=e=>{
       // 이번 주(요일 탭) 보기로 복귀, 데이터 있는 첫 요일로 이동
       curView={type:"day"};
       cur = DAYS.find(d=>DATA.days[d]&&DATA.days[d].players.length>0) || "월요일";
-      document.getElementById("srcLabel").textContent="불러온 파일";
-      document.getElementById("dateVal").textContent=f.name.replace(/\.(xlsx|xlsm)$/i,"");
-      document.getElementById("foot").textContent=f.name+" · 브라우저에서 직접 읽음 · 보관 날짜 "+Object.keys(BYDATE).length+"일";
+      const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+      setTxt("srcLabel","불러온 파일");
+      setTxt("dateVal",f.name.replace(/\.(xlsx|xlsm)$/i,""));
+      setTxt("foot",f.name+" · 브라우저에서 직접 읽음 · 보관 날짜 "+Object.keys(BYDATE).length+"일");
       buildTabs(); render();
       const nd=Object.keys(BYDATE).length;
       toast("불러오기 완료 · 요일 "+parsed.filledDays.length+"개 · 달력 "+nd+"일 기록");
