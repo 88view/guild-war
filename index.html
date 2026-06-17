@@ -244,6 +244,7 @@
   </header>
 
   <div class="datebadge" id="dateBadge" style="display:none;">
+    <span class="ic">📅</span>
     <span class="txt" id="badgeTxt"></span>
     <button class="clr" id="badgeClr">최신 날짜로</button>
   </div>
@@ -306,6 +307,7 @@
           <button type="button" class="ntbtn ghost" id="ntClearBtn" title="모두 지우기">🗑 지우기</button>
         </div>
         <div class="notice-toolbar notice-icons">
+          <span class="nt-icon-label">아이콘</span>
           <button type="button" class="ntbtn nticon" data-insert="👑" title="왕관">👑</button>
           <button type="button" class="ntbtn nticon" data-insert="🗡" title="검">🗡</button>
           <button type="button" class="ntbtn nticon" data-insert="♧" title="클로버">♧</button>
@@ -462,10 +464,10 @@ function render(){
   const empty=P.length===0;
   const total=S["총 점수"]||0,cnt=S["총 인원"]||0,avg=cnt?Math.round(total/cnt):0,top=P[0];
   document.getElementById("kpis").innerHTML=`
-    <div class="kpi"><div class="lab">총 랭킹 포인트</div><div class="val num">${empty?"—":abbr(total)}</div><div class="meta num">${empty?"데이터 없음":fmt(total)+" P"}</div></div>
+    <div class="kpi"><div class="lab">총 랭킹 포인트</div><div class="val num">${empty?"—":fmt(total)}</div><div class="meta num">${empty?"데이터 없음":fmt(total)+" P"}</div></div>
     <div class="kpi b"><div class="lab">참여 인원</div><div class="val num">${empty?"—":cnt}<span style="font-size:14px;color:var(--dim)"> 명</span></div><div class="meta">길드원 기록</div></div>
-    <div class="kpi c"><div class="lab">평균 포인트</div><div class="val num">${empty?"—":abbr(avg)}</div><div class="meta num">${empty?"":fmt(avg)+" P"}</div></div>
-    <div class="kpi d"><div class="lab">1위 점수</div><div class="val num">${empty?"—":abbr(top.score)}</div><div class="meta">${empty?"":esc(top.player)}</div></div>`;
+    <div class="kpi c"><div class="lab">평균 포인트</div><div class="val num">${empty?"—":fmt(avg)}</div><div class="meta num">${empty?"":fmt(avg)+" P"}</div></div>
+    <div class="kpi d"><div class="lab">1위 점수</div><div class="val num">${empty?"—":fmt(top.score)}</div><div class="meta">${empty?"":esc(top.player)}</div></div>`;
   document.getElementById("rankhint").textContent=empty?"":`${fmtDateK(curDate)} · ${cnt}명`;
   document.getElementById("disthint").textContent=empty?"":`총 ${cnt}명`;
 
