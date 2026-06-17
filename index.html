@@ -428,6 +428,14 @@ function applyFilter(){
 const DAY_ORDER=["월","화","수","목","금","토","일"];
 let curTabDay=null;
 
+/* Date 객체를 "로컬 기준" YYYY-MM-DD 문자열로 변환 (UTC 변환 X, timezone 버그 방지) */
+function fmtLocalDate(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
 /* 날짜(ds)가 속한 주의 월요일 날짜 문자열 반환 */
 function getWeekStart(ds){
   const d=new Date(ds+"T00:00:00");
@@ -435,7 +443,7 @@ function getWeekStart(ds){
   const diffToMon=dow===0?-6:1-dow; // 월요일까지의 차이
   const mon=new Date(d);
   mon.setDate(d.getDate()+diffToMon);
-  return mon.toISOString().slice(0,10);
+  return fmtLocalDate(mon); // toISOString() 사용 시 UTC 변환으로 KST에서 날짜가 하루 당겨지는 버그 있었음
 }
 
 /* curDate 기준 같은 주에 속하는 날짜 목록 반환 */
@@ -444,7 +452,7 @@ function getDatesInSameWeek(refDate){
   const weekStart=getWeekStart(refDate);
   const weekEnd=new Date(weekStart+"T00:00:00");
   weekEnd.setDate(weekEnd.getDate()+6);
-  const weekEndStr=weekEnd.toISOString().slice(0,10);
+  const weekEndStr=fmtLocalDate(weekEnd); // 동일한 이유로 toISOString() 대신 로컬 포맷 사용
   return Object.keys(BYDATE).filter(ds=>ds>=weekStart&&ds<=weekEndStr);
 }
 
@@ -515,7 +523,7 @@ function renderCalendar(){
   const first=new Date(calYear,calMonth,1).getDay();
   const ndays=new Date(calYear,calMonth+1,0).getDate();
   for(let i=0;i<first;i++){const p=document.createElement("div");p.className="cal-cell pad";grid.appendChild(p);}
-  const todayStr=new Date().toISOString().slice(0,10);
+  const todayStr=fmtLocalDate(new Date()); // toISOString() 사용 시 KST 자정~오전 9시 사이 "오늘"이 전날로 표시되는 버그 있었음
   for(let d=1;d<=ndays;d++){
     const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const has=!!BYDATE[ds];
