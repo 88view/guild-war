@@ -203,14 +203,14 @@
   .notice-count{text-align:right;font-size:12px;color:var(--mine);font-weight:800;margin-top:7px;font-variant-numeric:tabular-nums}
   .notice-count.warn{color:var(--s9)}
 
-  .game-card{background:#dde7f4;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,.08);max-width:320px;
+  .game-card{background:#dde7f4;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,.08);
     box-shadow:0 14px 30px -12px rgba(0,0,0,.5);color:#1c2738}
   .game-card-top{background:linear-gradient(135deg,#3f72a6,#274a73);display:flex;align-items:center;
     justify-content:space-between;padding:13px 15px}
   .gt-title{color:#fff;font-weight:800;font-size:15px;letter-spacing:-.01em}
   .gt-urgent{background:linear-gradient(135deg,#ff6d4c,#d83f1f);color:#fff;font-size:11px;font-weight:800;
     padding:5px 11px;border-radius:8px;white-space:nowrap}
-  .game-card-body{padding:16px 16px 8px;font-size:14.5px;line-height:1.65;
+  .game-card-body{padding:16px 16px 8px;font-size:13px;line-height:1.65;min-height:170px;
     white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
   .game-card-body b{font-weight:800} .game-card-body u{text-decoration:underline}
   .game-card-placeholder{opacity:.4}
@@ -241,6 +241,7 @@
   </header>
 
   <div class="datebadge" id="dateBadge" style="display:none;">
+    <span class="ic">📅</span>
     <span class="txt" id="badgeTxt"></span>
     <button class="clr" id="badgeClr">최신 날짜로</button>
   </div>
@@ -678,7 +679,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
    미리보기 폭은 입력창보다 좁아서, 한 줄당 대략 23자(태그 제외)를 기준으로 자동 줄바꿈된다
    (□ 27자 입력 시 23자+4자로 줄바꿈되는 실측 스크린샷 기준). */
 (function(){
-  const WRAP_WIDTH=27;
+  const WRAP_WIDTH=23;
   const TAG_RE=/<\/?(?:b|u|color(?:=#[0-9a-fA-F]{3,6})?)>/gi;
 
   function tokenizeLine(line){
