@@ -601,6 +601,35 @@ if(window._savedFileName){
   setTxt("srcLabel","저장된 데이터 ("+window._savedDate+")");
   setTxt("dateVal",window._savedFileName.replace(/\.(xlsx|xlsm)$/i,""));
 }
+
+/* ---------- 깃헙 엑셀 자동 로드 ---------- */
+const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/길드전_업로드_파일.xlsx";
+(async function autoLoad(){
+  try{
+    toast("📡 최신 데이터 불러오는 중...");
+    const res=await fetch(GITHUB_XLSX_URL+"?t="+Date.now()); // 캐시 방지
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(buf),{type:"array"});
+    const parsed=parseWorkbook(wb);
+    if(parsed.totalPlayers===0){toast("엑셀에 플레이어 데이터가 없어요.","err");return;}
+    DATA=parsed.data;
+    WEEKDATES=parsed.weekDates;
+    rebuildByDate();
+    curView={type:"day"};
+    cur=DAYS.find(d=>DATA.days[d]&&DATA.days[d].players.length>0)||"월요일";
+    const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+    setTxt("srcLabel","자동 업데이트");
+    setTxt("dateVal",new Date().toLocaleDateString("ko-KR"));
+    /* localStorage에도 저장 (오프라인 대비) */
+    try{ localStorage.setItem("guildwar_data",JSON.stringify({DATA,WEEKDATES,fileName:"길드전_업로드_파일.xlsx",savedAt:new Date().toLocaleString("ko-KR")})); }catch(e){}
+    buildTabs(); render();
+    toast("✅ 최신 데이터 반영 완료!");
+  }catch(e){
+    console.warn("깃헙 자동 로드 실패:",e);
+    toast("⚠️ 자동 로드 실패 – 저장된 데이터로 표시합니다","err");
+  }
+})();
 </script>
 </body>
 </html>
