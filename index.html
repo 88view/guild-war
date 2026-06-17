@@ -182,6 +182,49 @@
   .cal-foot .leg{display:inline-flex;align-items:center;gap:5px}
   .cal-foot .leg i{width:6px;height:6px;border-radius:50%;background:var(--mine);display:inline-block}
 
+  /* 공지 작성 모달 */
+  .cal.notice-modal{width:min(980px,96vw);max-height:92vh;overflow-y:auto}
+  .notice-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:6px}
+  .notice-pane-h{font-size:13px;font-weight:800;color:var(--muted);margin-bottom:9px;display:flex;align-items:baseline;gap:7px}
+  .notice-pane-h .hint{font-size:11px;color:var(--dim);font-weight:600}
+
+  .notice-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  .ntbtn{background:var(--raised);border:1px solid var(--line2);color:var(--tx);font-family:inherit;
+    font-size:13px;font-weight:800;border-radius:8px;padding:7px 11px;cursor:pointer;transition:.15s;
+    display:inline-flex;align-items:center;gap:6px}
+  .ntbtn:hover{border-color:var(--gold);background:var(--panel2)}
+  .ntbtn.ghost{color:var(--muted);font-weight:600}
+  .nt-sep{width:1px;height:20px;background:var(--line2);margin:0 3px}
+  .nt-swatch{width:13px;height:13px;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:#921010}
+
+  #ntInput{width:100%;min-height:240px;resize:vertical;background:var(--bg2);border:1px solid var(--line2);
+    color:var(--tx);font-family:inherit;font-size:13.5px;line-height:1.6;border-radius:10px;padding:13px;outline:none}
+  #ntInput:focus{border-color:var(--gold)}
+  .notice-count{text-align:right;font-size:12px;color:var(--mine);font-weight:800;margin-top:7px;font-variant-numeric:tabular-nums}
+  .notice-count.warn{color:var(--s9)}
+
+  .game-card{background:#dde7f4;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,.08);
+    box-shadow:0 14px 30px -12px rgba(0,0,0,.5);color:#1c2738}
+  .game-card-top{background:linear-gradient(135deg,#3f72a6,#274a73);display:flex;align-items:center;
+    justify-content:space-between;padding:13px 15px}
+  .gt-title{color:#fff;font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .gt-urgent{background:linear-gradient(135deg,#ff6d4c,#d83f1f);color:#fff;font-size:11px;font-weight:800;
+    padding:5px 11px;border-radius:8px;white-space:nowrap}
+  .game-card-body{padding:16px 16px 8px;font-size:13px;line-height:1.65;min-height:170px;
+    white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+  .game-card-body b{font-weight:800} .game-card-body u{text-decoration:underline}
+  .game-card-placeholder{opacity:.4}
+  .game-card-foot{padding:8px 16px 0;font-size:11px;color:#5b6b85;border-top:1px dashed rgba(0,0,0,.14);
+    margin-top:8px;padding-top:10px}
+  .game-card-comment{padding:9px 16px 15px;display:flex;align-items:center;justify-content:space-between;
+    font-size:12px;color:#46566f;font-weight:700}
+  .gt-reacts{display:flex;gap:6px}
+  .react{border:1px solid rgba(0,0,0,.12);background:#fff;border-radius:8px;padding:4px 10px;
+    font-size:11.5px;font-weight:700;color:#46566f;cursor:default}
+  .react.like{color:#d8405a} .react.dislike{color:#3f74c9}
+  .notice-actions{margin-top:14px;display:flex;justify-content:flex-end;gap:8px}
+
+  @media(max-width:760px){.notice-grid{grid-template-columns:1fr}}
   @media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:520px){.podium{grid-template-columns:1fr;gap:10px}.pod.g{order:-1}.search{width:140px}.rightcol{align-items:flex-start}}
 </style>
@@ -197,13 +240,13 @@
     <div class="rightcol">
       <div class="btnrow">
         <button class="calbtn" id="calBtn">📅 달력으로 보기</button>
+        <button class="calbtn" id="noticeBtn">📢 공지 작성</button>
       </div>
       <div class="datebox"><div class="d" id="srcLabel">집계 기준일</div><div class="v num" id="dateVal">2026.06.16</div></div>
     </div>
   </header>
 
   <div class="datebadge" id="dateBadge" style="display:none;">
-    <span class="ic">📅</span>
     <span class="txt" id="badgeTxt"></span>
     <button class="clr" id="badgeClr">최신 날짜로</button>
   </div>
@@ -244,6 +287,49 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-foot"><span class="leg"><i></i> 데이터 있는 날짜</span></div>
+  </div>
+</div>
+
+<!-- 공지 작성 모달 -->
+<div class="modal" id="noticeModal">
+  <div class="cal notice-modal">
+    <div class="cal-top">
+      <h3>📢 공지 작성 · 미리보기</h3>
+      <button class="cal-x" id="noticeClose">×</button>
+    </div>
+    <div class="notice-grid">
+      <div class="notice-pane">
+        <div class="notice-pane-h">공지 편집</div>
+        <div class="notice-toolbar">
+          <button type="button" class="ntbtn" data-tag="b" title="굵게"><b>B</b></button>
+          <button type="button" class="ntbtn" data-tag="u" title="밑줄"><u>U</u></button>
+          <button type="button" class="ntbtn" id="ntColorBtn" title="글자 색상">A <span class="nt-swatch" id="ntSwatch"></span></button>
+          <input type="color" id="ntColorPicker" value="#921010" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">
+          <span class="nt-sep"></span>
+          <button type="button" class="ntbtn ghost" id="ntClearBtn" title="모두 지우기">🗑 지우기</button>
+        </div>
+        <textarea id="ntInput" maxlength="1000" placeholder="공지 내용을 입력하세요. <b>굵게</b>, <u>밑줄</u>, <color=#hex>색상</color> 태그를 사용할 수 있어요."></textarea>
+        <div class="notice-count"><span id="ntCount">0</span>/1000</div>
+      </div>
+      <div class="notice-pane">
+        <div class="notice-pane-h">실시간 미리보기 <span class="hint">· 게임 공지창 폭 기준 자동 줄바꿈</span></div>
+        <div class="game-card">
+          <div class="game-card-top">
+            <span class="gt-title">길드 공지</span>
+            <span class="gt-urgent">긴급 공지</span>
+          </div>
+          <div class="game-card-body game-card-placeholder" id="ntPreview">미리보기가 여기에 표시돼요…</div>
+          <div class="game-card-foot" id="ntFootTime"></div>
+          <div class="game-card-comment">
+            <span>댓글 0</span>
+            <span class="gt-reacts"><span class="react like">❤ 0</span><span class="react dislike">👎 0</span></span>
+          </div>
+        </div>
+        <div class="notice-actions">
+          <button class="loadbtn" id="ntCopyBtn">📋 게임용 코드 복사</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -596,6 +682,127 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     toast("⚠️ 자동 로드 실패","err");
     render();
   }
+})();
+
+/* ── 공지 작성 / 게임 미리보기 ──
+   실제 게임 공지 입력란은 1000자 제한, BBCode 비슷한 태그(<b>,<u>,<color=#hex>)를 지원.
+   미리보기 폭은 입력창보다 좁아서, 한 줄당 대략 23자(태그 제외)를 기준으로 자동 줄바꿈된다
+   (□ 27자 입력 시 23자+4자로 줄바꿈되는 실측 스크린샷 기준). */
+(function(){
+  const WRAP_WIDTH=23;
+  const TAG_RE=/<\/?(?:b|u|color(?:=#[0-9a-fA-F]{3,6})?)>/gi;
+
+  function tokenizeLine(line){
+    const tokens=[]; let last=0,m;
+    TAG_RE.lastIndex=0;
+    while((m=TAG_RE.exec(line))){
+      if(m.index>last)for(const ch of line.slice(last,m.index))tokens.push({t:"ch",v:ch});
+      tokens.push({t:"tag",v:m[0]});
+      last=m.index+m[0].length;
+    }
+    if(last<line.length)for(const ch of line.slice(last))tokens.push({t:"ch",v:ch});
+    return tokens;
+  }
+
+  /* 한 원본 줄을 WRAP_WIDTH 글자마다 자동 줄바꿈.
+     단, 줄바꿈 지점 바로 다음이 닫는 태그(</b> 등)라면 그 태그가 다음 줄에 혼자
+     떨어지지 않도록 닫는 태그까지 출력한 뒤에 줄바꿈을 넣는다. */
+  function wrapLineTokens(tokens){
+    const out=[]; let width=0;
+    for(let i=0;i<tokens.length;i++){
+      const tok=tokens[i];
+      if(tok.t==="tag"){out.push(tok);continue;}
+      out.push(tok); width++;
+      if(width>=WRAP_WIDTH && i<tokens.length-1){
+        let j=i+1;
+        while(j<tokens.length && tokens[j].t==="tag" && /^<\//.test(tokens[j].v)){
+          out.push(tokens[j]); j++;
+        }
+        if(j<tokens.length)out.push({t:"br"});
+        i=j-1; width=0;
+      }
+    }
+    return out;
+  }
+
+  function escapeChar(c){return c==="&"?"&amp;":c==="<"?"&lt;":c===">"?"&gt;":c;}
+  function tagToHtml(s){
+    if(/^<b>$/i.test(s))return "<b>";
+    if(/^<\/b>$/i.test(s))return "</b>";
+    if(/^<u>$/i.test(s))return "<u>";
+    if(/^<\/u>$/i.test(s))return "</u>";
+    if(/^<\/color>$/i.test(s))return "</span>";
+    const m=s.match(/^<color=(#[0-9a-fA-F]{3,6})>$/i);
+    return m?`<span style="color:${m[1]}">`:"";
+  }
+  function renderTokensToHtml(tokens){
+    return tokens.map(tok=>tok.t==="br"?"<br>":tok.t==="tag"?tagToHtml(tok.v):escapeChar(tok.v)).join("");
+  }
+  function buildPreviewHtml(raw){
+    return raw.split("\n").map(line=>renderTokensToHtml(wrapLineTokens(tokenizeLine(line)))).join("<br>");
+  }
+  function fmtUtcNow(){
+    const d=new Date(),p=n=>String(n).padStart(2,"0");
+    return `UTC ${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} [빌 런] 착한사람들`;
+  }
+
+  const noticeModal=document.getElementById("noticeModal");
+  const ntInput=document.getElementById("ntInput");
+  const ntCount=document.getElementById("ntCount");
+  const ntPreview=document.getElementById("ntPreview");
+  const ntFootTime=document.getElementById("ntFootTime");
+  const ntSwatch=document.getElementById("ntSwatch");
+  const ntColorPicker=document.getElementById("ntColorPicker");
+
+  function updateAll(){
+    const len=ntInput.value.length;
+    ntCount.textContent=len;
+    ntCount.parentElement.classList.toggle("warn",len>=1000);
+    const html=buildPreviewHtml(ntInput.value);
+    if(html){ntPreview.classList.remove("game-card-placeholder");ntPreview.innerHTML=html;}
+    else{ntPreview.classList.add("game-card-placeholder");ntPreview.textContent="미리보기가 여기에 표시돼요…";}
+  }
+
+  function wrapSelection(open,close){
+    const start=ntInput.selectionStart,end=ntInput.selectionEnd;
+    const val=ntInput.value, selected=val.slice(start,end);
+    const next=val.slice(0,start)+open+selected+close+val.slice(end);
+    if(next.length>1000){toast("1000자를 넘어서 태그를 추가할 수 없어요.","err");return;}
+    ntInput.value=next;
+    const newStart=start+open.length, newEnd=newStart+selected.length;
+    ntInput.focus(); ntInput.setSelectionRange(newStart,newEnd);
+    updateAll();
+  }
+
+  document.querySelectorAll(".ntbtn[data-tag]").forEach(btn=>{
+    btn.onclick=()=>wrapSelection(`<${btn.dataset.tag}>`,`</${btn.dataset.tag}>`);
+  });
+  document.getElementById("ntColorBtn").onclick=()=>ntColorPicker.click();
+  ntColorPicker.oninput=()=>{
+    ntSwatch.style.background=ntColorPicker.value;
+    wrapSelection(`<color=${ntColorPicker.value}>`,"</color>");
+  };
+  document.getElementById("ntClearBtn").onclick=()=>{
+    if(!ntInput.value||confirm("작성 중인 내용을 모두 지울까요?")){ntInput.value="";updateAll();ntInput.focus();}
+  };
+  document.getElementById("ntCopyBtn").onclick=async()=>{
+    try{
+      await navigator.clipboard.writeText(ntInput.value);
+      toast("📋 공지 코드가 복사됐어요. 게임 공지 편집창에 붙여넣어 주세요!");
+    }catch(e){
+      try{ntInput.select();document.execCommand("copy");toast("📋 공지 코드가 복사됐어요!");}
+      catch(e2){toast("복사에 실패했어요. 직접 선택해서 복사해 주세요.","err");}
+      ntInput.setSelectionRange(0,0);
+    }
+  };
+  ntInput.addEventListener("input",updateAll);
+
+  function openNotice(){ntFootTime.textContent=fmtUtcNow();updateAll();noticeModal.classList.add("show");}
+  function closeNotice(){noticeModal.classList.remove("show");}
+  document.getElementById("noticeBtn").onclick=openNotice;
+  document.getElementById("noticeClose").onclick=closeNotice;
+  noticeModal.onclick=e=>{if(e.target===noticeModal)closeNotice();};
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&noticeModal.classList.contains("show"))closeNotice();});
 })();
 </script>
 </body>
