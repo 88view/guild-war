@@ -330,16 +330,18 @@ function parseWorkbook(wb){
     });
   });
 
-  // 3) 정렬 & rank 부여
+  // 3) 정렬 & rank 부여 & {players,summary,weekday} 객체로 변환
   let total=0;
+  const bydateFinal={};
   Object.keys(bydate).forEach(ds=>{
     const arr=bydate[ds];
     arr.sort((a,b)=>b.score-a.score);
     arr.forEach((p,i)=>p.rank=i+1);
     total+=arr.length;
+    bydateFinal[ds]={players:arr, summary:summarize(arr), weekday:weekdayOf(ds)};
   });
 
-  return {bydate,stages,totalPlayers:total};
+  return {bydate:bydateFinal,stages,totalPlayers:total};
 }
 
 /* ── 렌더 ── */
