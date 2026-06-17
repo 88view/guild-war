@@ -142,7 +142,7 @@
   /* 선택 날짜 뱃지 */
   .datebadge{align-items:center;gap:10px;background:linear-gradient(90deg,rgba(70,207,134,.16),rgba(70,207,134,.04));
     border:1px solid rgba(70,207,134,.4);border-radius:12px;padding:9px 14px;margin-bottom:18px}
-  /* datebadge always shown */
+  /* datebadge shown only when date is selected */
   .datebadge .ic{font-size:16px}
   .datebadge .txt{font-size:13.5px;font-weight:700}
   .datebadge .txt b{color:var(--mine)}
@@ -202,7 +202,7 @@
     </div>
   </header>
 
-  <div class="datebadge show" id="dateBadge">
+  <div class="datebadge" id="dateBadge" style="display:none;">
     <span class="ic">📅</span>
     <span class="txt" id="badgeTxt"></span>
     <button class="clr" id="badgeClr">최신 날짜로</button>
@@ -242,6 +242,7 @@
       <button id="calNext">›</button>
     </div>
     <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-foot"><span class="leg"><i></i> 데이터 있는 날짜</span></div>
   </div>
 </div>
 
@@ -290,15 +291,18 @@ function normDate(v){
 
 /* ── 엑셀 파싱 ── */
 function parseWorkbook(wb){
-  const J=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null});
+  /* header:1 → 첫 행을 컬럼명으로 사용하는 일반 json 변환 */
+  const J=ws=>XLSX.utils.sheet_to_json(ws,{raw:true,defval:null});
+  /* header:"A" → 컬럼을 A,B,C...로 지정하는 raw 변환 */
+  const JA=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null});
   const bydate={};
   const stages=[];
 
-  // 1) 기준표
+  // 1) 기준표 — 1행이 헤더(하한점수/단계/점수범위), 2행~가 데이터
   const kb=wb.Sheets["기준표"];
   if(kb){
     J(kb).forEach(row=>{
-      const mn=row.B,st=row.C,rg=row.D;
+      const mn=row["하한점수"], st=row["단계"], rg=row["점수 범위"];
       if(typeof mn==="number"&&st&&String(st).includes("단계")){
         stages.push({min:mn,stage:String(st).trim(),range:rg?String(rg).trim():""});
       }
@@ -306,10 +310,14 @@ function parseWorkbook(wb){
   }
 
   // 2) 월별 보관 시트 (YYYY-MM 형식)
+  // 시트 구조: 1행=설명문구("📦 월별 보관..."), 2행=컬럼명(날짜/순위/플레이어/점수/단계), 3행~=데이터
   wb.SheetNames.forEach(name=>{
     if(!/^\d{4}-\d{2}$/.test(name))return;
     const ws=wb.Sheets[name]; if(!ws)return;
-    J(ws).forEach(row=>{
+    const rows=JA(ws);
+    // row.A 가 "날짜" 또는 설명 텍스트인 행은 헤더이므로 건너뜀
+    rows.forEach(row=>{
+      // A열이 날짜 형식이어야만 데이터 행으로 인식
       const ds=normDate(row.A);
       const pl=row.C, sc=row.D, st=row.E;
       if(ds&&pl&&typeof sc==="number"){
@@ -351,6 +359,7 @@ function render(){
 
   // 뱃지
   const badge=document.getElementById("dateBadge");
+  badge.style.display="flex";
   badge.classList.add("show");
   document.getElementById("badgeTxt").innerHTML=`📅 <b>${esc(fmtDateK(curDate))} (${esc(weekday.replace("요일",""))})</b>`;
 
