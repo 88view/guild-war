@@ -461,24 +461,17 @@ function renderTabs(){
     dayMap[wd].push(ds);
   });
 
-  // 전체 데이터에 존재하는 요일도 체크 (dot 표시용)
-  const allDayMap={};
-  Object.keys(BYDATE).forEach(ds=>{
-    const wd=BYDATE[ds].weekday.replace("요일","");
-    if(!allDayMap[wd])allDayMap[wd]=[];
-    allDayMap[wd].push(ds);
-  });
-
   tabsEl.innerHTML=DAY_ORDER.map(d=>{
     const datesInWeek=dayMap[d]||[];
     const has=datesInWeek.length>0; // 이번 주에 데이터가 있는지
-    const hasAny=(allDayMap[d]||[]).length>0; // 전체에서 데이터 존재 여부
     const isActive=curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d;
     const cls="tab"+(isActive?" active":"")+(has?"":" empty");
     const dot=has?'<span class="dot"></span>':"";
-    return `<button class="${cls}" data-day="${d}" ${has?"":"disabled"}>${d}요일${dot}</button>`;
+    // disabled 속성 제거 → 클릭 이벤트가 항상 발화되도록 함
+    return `<button class="${cls}" data-day="${d}">${d}요일${dot}</button>`;
   }).join("");
-  tabsEl.querySelectorAll(".tab:not(.empty)").forEach(btn=>{
+  // 모든 탭에 클릭 이벤트 부여 (데이터 없는 요일은 selectTabDay 내부에서 처리)
+  tabsEl.querySelectorAll(".tab").forEach(btn=>{
     btn.onclick=()=>selectTabDay(btn.dataset.day);
   });
 }
@@ -494,6 +487,7 @@ function selectTabDay(day){
     toast(day+"요일 기록을 불러왔어요");
     window.scrollTo({top:0,behavior:"smooth"});
   }
+  // match가 없으면(데이터 없는 요일) 아무 동작 안 함
 }
 
 let tT;
