@@ -197,9 +197,7 @@
     <div class="rightcol">
       <div class="btnrow">
         <button class="calbtn" id="calBtn">📅 달력으로 보기</button>
-        <button class="loadbtn" id="loadBtn">📂 엑셀 불러오기</button>
       </div>
-      <input type="file" id="fileIn" accept=".xlsx,.xlsm" style="display:none">
       <div class="datebox"><div class="d" id="srcLabel">집계 기준일</div><div class="v num" id="dateVal">2026.06.16</div></div>
     </div>
   </header>
@@ -313,37 +311,6 @@ function rebuildByDate(){
 }
 
 /* ---------- 엑셀 파싱 (브라우저, SheetJS) ---------- */
-document.getElementById("loadBtn").onclick=()=>document.getElementById("fileIn").click();
-document.getElementById("fileIn").onchange=e=>{
-  const f=e.target.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    try{
-      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
-      const parsed=parseWorkbook(wb);
-      if(parsed.totalPlayers===0){toast("플레이어 데이터를 찾지 못했어요. 시트 형식을 확인해 주세요.","err");return;}
-      DATA=parsed.data;
-      WEEKDATES=parsed.weekDates;
-      rebuildByDate();
-      // 이번 주(요일 탭) 보기로 복귀, 데이터 있는 첫 요일로 이동
-      curView={type:"day"};
-      cur = DAYS.find(d=>DATA.days[d]&&DATA.days[d].players.length>0) || "월요일";
-      const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
-      setTxt("srcLabel","불러온 파일");
-      setTxt("dateVal",f.name.replace(/\.(xlsx|xlsm)$/i,""));
-      setTxt("foot",f.name+" · 브라우저에서 직접 읽음 · 보관 날짜 "+Object.keys(BYDATE).length+"일");
-      /* ── localStorage 저장 ── */
-      try{
-        localStorage.setItem("guildwar_data",JSON.stringify({DATA,WEEKDATES,fileName:f.name,savedAt:new Date().toLocaleString("ko-KR")}));
-      }catch(e){ console.warn("저장 실패:",e); toast("⚠️ 자동저장 실패 – 파일이 너무 큽니다","err"); }
-      buildTabs(); render();
-      const nd=Object.keys(BYDATE).length;
-      toast("불러오기 완료 · 요일 "+parsed.filledDays.length+"개 · 달력 "+nd+"일 기록");
-    }catch(err){console.error(err);toast("엑셀을 읽는 중 오류가 발생했어요.","err");}
-  };
-  r.readAsArrayBuffer(f);
-  e.target.value="";
-};
 
 function normDate(v){
   if(v==null||v==="") return null;
