@@ -183,8 +183,8 @@
   .cal-foot .leg i{width:6px;height:6px;border-radius:50%;background:var(--mine);display:inline-block}
 
   /* 공지 작성 모달 */
-  .cal.notice-modal{width:min(980px,96vw);max-height:92vh;overflow-y:auto}
-  .notice-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:6px}
+  .cal.notice-modal{width:min(720px,96vw);max-height:92vh;overflow-y:auto}
+  .notice-grid{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:6px}
   .notice-pane-h{font-size:13px;font-weight:800;color:var(--muted);margin-bottom:9px;display:flex;align-items:baseline;gap:7px}
   .notice-pane-h .hint{font-size:11px;color:var(--dim);font-weight:600}
 
@@ -210,13 +210,16 @@
   .gt-title{color:#fff;font-weight:800;font-size:15px;letter-spacing:-.01em}
   .gt-urgent{background:linear-gradient(135deg,#ff6d4c,#d83f1f);color:#fff;font-size:11px;font-weight:800;
     padding:5px 11px;border-radius:8px;white-space:nowrap}
-  .game-card-body{padding:16px 16px 8px;font-size:13px;line-height:1.65;min-height:170px;
+  .game-card-body{padding:16px 16px 8px;font-size:14.5px;line-height:1.65;
     white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
   .game-card-body b{font-weight:800} .game-card-body u{text-decoration:underline}
   .game-card-placeholder{opacity:.4}
   .game-card-foot{padding:8px 16px 16px;font-size:11px;color:#5b6b85;border-top:1px dashed rgba(0,0,0,.14);
     margin-top:8px;padding-top:10px}
   .notice-actions{margin-top:14px;display:flex;justify-content:flex-end;gap:8px}
+  .notice-icons{margin-top:4px;flex-wrap:wrap;row-gap:4px}
+  .nt-icon-label{font-size:11px;color:var(--dim);font-weight:700;align-self:center;white-space:nowrap}
+  .nticon{padding:5px 8px;font-size:15px;min-width:34px;justify-content:center}
 
   @media(max-width:760px){.notice-grid{grid-template-columns:1fr}}
   @media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
@@ -241,7 +244,6 @@
   </header>
 
   <div class="datebadge" id="dateBadge" style="display:none;">
-    <span class="ic">📅</span>
     <span class="txt" id="badgeTxt"></span>
     <button class="clr" id="badgeClr">최신 날짜로</button>
   </div>
@@ -302,6 +304,20 @@
           <input type="color" id="ntColorPicker" value="#921010" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">
           <span class="nt-sep"></span>
           <button type="button" class="ntbtn ghost" id="ntClearBtn" title="모두 지우기">🗑 지우기</button>
+        </div>
+        <div class="notice-toolbar notice-icons">
+          <button type="button" class="ntbtn nticon" data-insert="👑" title="왕관">👑</button>
+          <button type="button" class="ntbtn nticon" data-insert="🗡" title="검">🗡</button>
+          <button type="button" class="ntbtn nticon" data-insert="♧" title="클로버">♧</button>
+          <button type="button" class="ntbtn nticon" data-insert="☞" title="손가락">☞</button>
+          <button type="button" class="ntbtn nticon" data-insert="★" title="별">★</button>
+          <button type="button" class="ntbtn nticon" data-insert="🧀" title="치즈">🧀</button>
+          <button type="button" class="ntbtn nticon" data-insert="💬" title="말풍선">💬</button>
+          <button type="button" class="ntbtn nticon" data-insert="-▶" title="화살표">-▶</button>
+          <button type="button" class="ntbtn nticon" data-insert="🌞" title="해">🌞</button>
+          <button type="button" class="ntbtn nticon" data-insert="🌙" title="달">🌙</button>
+          <button type="button" class="ntbtn nticon" data-insert="💡" title="전구">💡</button>
+          <button type="button" class="ntbtn nticon" data-insert="🚨" title="경고">🚨</button>
         </div>
         <textarea id="ntInput" maxlength="1000" placeholder="공지 내용을 입력하세요. <b>굵게</b>, <u>밑줄</u>, <color=#hex>색상</color> 태그를 사용할 수 있어요."></textarea>
         <div class="notice-count"><span id="ntCount">0</span>/1000</div>
@@ -679,7 +695,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
    미리보기 폭은 입력창보다 좁아서, 한 줄당 대략 23자(태그 제외)를 기준으로 자동 줄바꿈된다
    (□ 27자 입력 시 23자+4자로 줄바꿈되는 실측 스크린샷 기준). */
 (function(){
-  const WRAP_WIDTH=23;
+  const WRAP_WIDTH=27;
   const TAG_RE=/<\/?(?:b|u|color(?:=#[0-9a-fA-F]{3,6})?)>/gi;
 
   function tokenizeLine(line){
@@ -768,6 +784,17 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     updateAll();
   }
 
+  document.querySelectorAll(".ntbtn[data-insert]").forEach(btn=>{
+    btn.onclick=()=>{
+      const ins=btn.dataset.insert;
+      const start=ntInput.selectionStart,end=ntInput.selectionEnd;
+      const val=ntInput.value;
+      if(val.length+ins.length>1000){toast("1000자를 넘어서 삽입할 수 없어요.","err");return;}
+      ntInput.value=val.slice(0,start)+ins+val.slice(end);
+      ntInput.focus();ntInput.setSelectionRange(start+ins.length,start+ins.length);
+      updateAll();
+    };
+  });
   document.querySelectorAll(".ntbtn[data-tag]").forEach(btn=>{
     btn.onclick=()=>wrapSelection(`<${btn.dataset.tag}>`,`</${btn.dataset.tag}>`);
   });
