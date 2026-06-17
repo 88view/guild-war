@@ -441,6 +441,7 @@ function parseWorkbook(wb){
 
 /* ── 렌더 ── */
 function render(){
+  weekAvgMode=false;
   renderTabs();
   if(!curDate||!BYDATE[curDate]){
     // 데이터 없는 날짜 선택됨
@@ -565,8 +566,9 @@ function renderTabs(){
 
   tabsEl.innerHTML=DAY_ORDER.map(d=>{
     const datesInWeek=dayMap[d]||[];
-    const has=datesInWeek.length>0; // 이번 주에 데이터가 있는지
-    const isActive=curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d;
+    // 일요일은 주간 평균 탭 — 이번 주에 데이터가 하나라도 있으면 활성
+    const has=d==="일" ? getDatesInSameWeek(curDate).filter(ds=>{const dow=new Date(ds+"T00:00:00").getDay();return dow>=1&&dow<=6;}).length>0 : datesInWeek.length>0;
+    const isActive=weekAvgMode ? d==="일" : (curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
     const cls="tab"+(isActive?" active":"")+(has?"":" empty");
     const dot=has?'<span class="dot"></span>':"";
     // disabled 속성 제거 → 클릭 이벤트가 항상 발화되도록 함
@@ -578,8 +580,61 @@ function renderTabs(){
   });
 }
 
+/* ── 주간 평균 계산 ── */
+let weekAvgMode=false; // 일요일(주간 평균) 탭 활성 여부
+
+function calcWeekAvg(refDate){
+  // 해당 주 월~토 데이터를 모아 유저별 평균 점수 계산
+  const weekStart=getWeekStart(refDate);
+  const weekEnd=new Date(weekStart+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+5); // 월~토(6일)
+  const weekEndStr=fmtLocalDate(weekEnd);
+
+  const weekDates=Object.keys(BYDATE).filter(ds=>{
+    const d=new Date(ds+"T00:00:00");
+    const dow=d.getDay();
+    return ds>=weekStart && ds<=weekEndStr && dow>=1 && dow<=6; // 월(1)~토(6)
+  });
+
+  if(weekDates.length===0)return null;
+
+  // 유저별 점수 합산 & 참여 횟수 카운트
+  const map={};
+  weekDates.forEach(ds=>{
+    BYDATE[ds].players.forEach(p=>{
+      if(!map[p.player])map[p.player]={player:p.player,sum:0,cnt:0,stage:p.stage};
+      map[p.player].sum+=p.score;
+      map[p.player].cnt++;
+      map[p.player].stage=p.stage; // 최신 단계 유지
+    });
+  });
+
+  // 평균 계산 후 정렬
+  const players=Object.values(map).map(u=>({
+    player:u.player,
+    score:Math.round(u.sum/u.cnt),
+    stage:u.stage,
+    days:u.cnt // 참여 일수
+  }));
+  players.sort((a,b)=>b.score-a.score);
+  players.forEach((p,i)=>p.rank=i+1);
+
+  return {players, weekDates, weekStart, weekEndStr};
+}
+
 function selectTabDay(day){
   curTabDay=day;
+
+  // 일요일 탭 → 주간 평균 모드
+  if(day==="일"){
+    weekAvgMode=true;
+    renderWeekAvg();
+    toast("📊 이번 주 평균 랭킹");
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+
+  weekAvgMode=false;
   // 현재 선택된 날짜와 같은 주에서 해당 요일의 날짜를 찾음
   const sameWeekDates=getDatesInSameWeek(curDate);
   const match=sameWeekDates.find(ds=>BYDATE[ds].weekday.replace("요일","")=== day);
@@ -589,7 +644,65 @@ function selectTabDay(day){
     toast(day+"요일 기록을 불러왔어요");
     window.scrollTo({top:0,behavior:"smooth"});
   }
-  // match가 없으면(데이터 없는 요일) 아무 동작 안 함
+}
+
+function renderWeekAvg(){
+  renderTabs();
+  const result=calcWeekAvg(curDate);
+
+  if(!result){
+    document.getElementById("kpis").innerHTML=`
+      <div class="kpi"><div class="lab">주간 평균</div><div class="val">—</div><div class="meta">이번 주 데이터 없음</div></div>
+      <div class="kpi b"><div class="lab">참여 인원</div><div class="val">—</div><div class="meta"></div></div>
+      <div class="kpi c"><div class="lab">평균 포인트</div><div class="val">—</div><div class="meta"></div></div>
+      <div class="kpi d"><div class="lab">1위 평균</div><div class="val">—</div><div class="meta"></div></div>`;
+    document.getElementById("podium").innerHTML="";
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📊</div><p>이번 주 데이터가 없습니다.</p></div>`;
+    renderDist({},true); return;
+  }
+
+  const {players:P, weekDates, weekStart, weekEndStr}=result;
+  const cnt=P.length;
+  const totalAvg=cnt?Math.round(P.reduce((a,p)=>a+p.score,0)/cnt):0;
+  const top=P[0];
+
+  // 뱃지
+  const badge=document.getElementById("dateBadge");
+  badge.style.display="flex";
+  badge.classList.add("show");
+  const ws=weekStart.split("-"),we=weekEndStr.split("-");
+  document.getElementById("badgeTxt").innerHTML=`📊 <b>주간 평균</b> · ${+ws[1]}/${+ws[2]} ~ ${+we[1]}/${+we[2]} (${weekDates.length}일 기준)`;
+
+  document.getElementById("rankhint").textContent=`주간 평균 · ${cnt}명`;
+  document.getElementById("disthint").textContent=`총 ${cnt}명`;
+
+  // 단계별 인원 집계
+  const S={};
+  STAGE_NAMES.forEach(x=>S[x]=0);
+  P.forEach(p=>{if(p.stage in S)S[p.stage]++;});
+
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="lab">집계 기간</div><div class="val" style="font-size:18px">${weekDates.length}일</div><div class="meta">월~토 참여 기준</div></div>
+    <div class="kpi b"><div class="lab">참여 인원</div><div class="val num">${cnt}<span style="font-size:14px;color:var(--dim)"> 명</span></div><div class="meta">길드원 기록</div></div>
+    <div class="kpi c"><div class="lab">전체 평균</div><div class="val num">${fmt(totalAvg)}</div><div class="meta num">${fmt(totalAvg)} P</div></div>
+    <div class="kpi d"><div class="lab">1위 평균</div><div class="val num">${fmt(top.score)}</div><div class="meta">${esc(top.player)}</div></div>`;
+
+  // 포디움
+  const [p1,p2,p3]=P;
+  document.getElementById("podium").innerHTML=`<div class="podium">${pod(p2,"s","2")}${pod(p1,"g","1")}${pod(p3,"br","3")}</div>`;
+  document.querySelectorAll(".pod").forEach(el=>el.onclick=()=>scrollToRank(el.dataset.r));
+
+  // 리스트 (참여 일수 표시)
+  document.getElementById("list").innerHTML=P.map(p=>{
+    const c=STAGE_COLOR[p.stage]||"var(--s1)";
+    const mine=p.player===MINE?" mine":"";
+    const top=p.rank<=3?" top":"";
+    return `<div class="row${top}${mine}" data-r="${p.rank}" data-n="${esc(p.player)}">
+      <div class="rk num">${p.rank}</div>
+      <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg" style="color:var(--dim)">${p.days}일 참여 · 일평균${mine?` · <span class="me">내 기록</span>`:""}</div></div>
+      <div class="sright"><div class="scv num">${fmt(p.score)}</div><div class="tag" style="background:${c}22;color:${c}">${esc(p.stage||"-")}</div></div></div>`;
+  }).join("");
+  attachRows(); renderDist(S,false); renderTable(); applyFilter();
 }
 
 let tT;
