@@ -428,20 +428,51 @@ function applyFilter(){
 const DAY_ORDER=["월","화","수","목","금","토","일"];
 let curTabDay=null;
 
+/* 날짜(ds)가 속한 주의 월요일 날짜 문자열 반환 */
+function getWeekStart(ds){
+  const d=new Date(ds+"T00:00:00");
+  const dow=d.getDay(); // 0=일, 1=월 ... 6=토
+  const diffToMon=dow===0?-6:1-dow; // 월요일까지의 차이
+  const mon=new Date(d);
+  mon.setDate(d.getDate()+diffToMon);
+  return mon.toISOString().slice(0,10);
+}
+
+/* curDate 기준 같은 주에 속하는 날짜 목록 반환 */
+function getDatesInSameWeek(refDate){
+  if(!refDate)return [];
+  const weekStart=getWeekStart(refDate);
+  const weekEnd=new Date(weekStart+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+6);
+  const weekEndStr=weekEnd.toISOString().slice(0,10);
+  return Object.keys(BYDATE).filter(ds=>ds>=weekStart&&ds<=weekEndStr);
+}
+
 function renderTabs(){
   const tabsEl=document.getElementById("dayTabs");
   if(!tabsEl)return;
-  // 데이터에 존재하는 요일 수집
-  const dayMap={}; // "월" → [날짜배열]
-  Object.keys(BYDATE).forEach(ds=>{
+
+  // 현재 선택 날짜와 같은 주의 날짜들만 수집
+  const sameWeekDates=getDatesInSameWeek(curDate);
+  const dayMap={}; // "월" → [날짜배열] (같은 주 내)
+  sameWeekDates.forEach(ds=>{
     const wd=BYDATE[ds].weekday.replace("요일","");
     if(!dayMap[wd])dayMap[wd]=[];
     dayMap[wd].push(ds);
   });
+
+  // 전체 데이터에 존재하는 요일도 체크 (dot 표시용)
+  const allDayMap={};
+  Object.keys(BYDATE).forEach(ds=>{
+    const wd=BYDATE[ds].weekday.replace("요일","");
+    if(!allDayMap[wd])allDayMap[wd]=[];
+    allDayMap[wd].push(ds);
+  });
+
   tabsEl.innerHTML=DAY_ORDER.map(d=>{
-    const dates=dayMap[d]||[];
-    const has=dates.length>0;
-    // 현재 선택 날짜가 이 요일인지 확인
+    const datesInWeek=dayMap[d]||[];
+    const has=datesInWeek.length>0; // 이번 주에 데이터가 있는지
+    const hasAny=(allDayMap[d]||[]).length>0; // 전체에서 데이터 존재 여부
     const isActive=curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d;
     const cls="tab"+(isActive?" active":"")+(has?"":" empty");
     const dot=has?'<span class="dot"></span>':"";
@@ -454,12 +485,13 @@ function renderTabs(){
 
 function selectTabDay(day){
   curTabDay=day;
-  // 해당 요일의 가장 최근 날짜 선택
-  const dates=Object.keys(BYDATE).filter(ds=>BYDATE[ds].weekday.replace("요일","")=== day).sort();
-  if(dates.length){
-    curDate=dates[dates.length-1];
+  // 현재 선택된 날짜와 같은 주에서 해당 요일의 날짜를 찾음
+  const sameWeekDates=getDatesInSameWeek(curDate);
+  const match=sameWeekDates.find(ds=>BYDATE[ds].weekday.replace("요일","")=== day);
+  if(match){
+    curDate=match;
     render();
-    toast(day+"요일 최신 기록을 불러왔어요");
+    toast(day+"요일 기록을 불러왔어요");
     window.scrollTo({top:0,behavior:"smooth"});
   }
 }
