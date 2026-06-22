@@ -579,35 +579,31 @@ function getDatesInSameWeek(refDate){
   return Object.keys(BYDATE).filter(ds=>ds>=weekStart&&ds<=weekEndStr);
 }
 
-/* 데이터의 최신 날짜가 "오늘" 기준 주와 다르면(=새 주가 시작됐는데 아직 그 주 데이터가 없는 경우)
-   지난 주 탭이 그대로 보이는 문제를 막기 위해, 오늘 날짜를 기본값으로 사용한다.
-   (오늘 날짜에 데이터가 없으면 render()가 "데이터 없음" 상태로 표시하고, 탭은 이번 주 기준으로만 채워진다) */
-function pickDefaultDate(dates){
-  if(!dates.length)return fmtLocalDate(new Date());
-  const latest=dates[dates.length-1];
-  const today=fmtLocalDate(new Date());
-  if(getWeekStart(latest)===getWeekStart(today))return latest;
-  return today;
-}
+/* "오늘" 날짜 문자열 (로컬 기준) */
+function getToday(){return fmtLocalDate(new Date());}
 
 function renderTabs(){
   const tabsEl=document.getElementById("dayTabs");
   if(!tabsEl)return;
 
-  // 현재 선택 날짜와 같은 주의 날짜들만 수집
-  const sameWeekDates=getDatesInSameWeek(curDate);
-  const dayMap={}; // "월" → [날짜배열] (같은 주 내)
+  // 탭은 항상 "오늘(실제 달력 기준 이번 주)"을 기준으로 채운다.
+  // curDate가 지난 주의 최신 기록을 보여주고 있어도, 그 지난 주 데이터가
+  // 이번 주 탭(화~토 등)에 그대로 묻어 보이지 않도록 분리함.
+  const today=getToday();
+  const sameWeekDates=getDatesInSameWeek(today);
+  const dayMap={}; // "월" → [날짜배열] (이번 주 내)
   sameWeekDates.forEach(ds=>{
     const wd=BYDATE[ds].weekday.replace("요일","");
     if(!dayMap[wd])dayMap[wd]=[];
     dayMap[wd].push(ds);
   });
+  const curInThisWeek=curDate&&getWeekStart(curDate)===getWeekStart(today);
 
   tabsEl.innerHTML=DAY_ORDER.map(d=>{
     const datesInWeek=dayMap[d]||[];
     // 일요일은 주간 평균 탭 — 이번 주에 데이터가 하나라도 있으면 활성
-    const has=d==="일" ? getDatesInSameWeek(curDate).filter(ds=>{const dow=new Date(ds+"T00:00:00").getDay();return dow>=1&&dow<=6;}).length>0 : datesInWeek.length>0;
-    const isActive=weekAvgMode ? d==="일" : (curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
+    const has=d==="일" ? sameWeekDates.filter(ds=>{const dow=new Date(ds+"T00:00:00").getDay();return dow>=1&&dow<=6;}).length>0 : datesInWeek.length>0;
+    const isActive=weekAvgMode ? d==="일" : (curInThisWeek&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
     const cls="tab"+(isActive?" active":"")+(has?"":" empty");
     const dot=has?'<span class="dot"></span>':"";
     // disabled 속성 제거 → 클릭 이벤트가 항상 발화되도록 함
@@ -661,10 +657,20 @@ function calcWeekAvg(refDate){
   return {players, weekDates, weekStart, weekEndStr};
 }
 
+/* 주 시작일(weekStartStr)과 요일명(월~일)으로 실제 날짜 문자열 계산 */
+function getDateForWeekdayInWeek(weekStartStr,dayKor){
+  const idx=DAY_ORDER.indexOf(dayKor); // 월=0 ... 일=6
+  if(idx<0)return null;
+  const d=new Date(weekStartStr+"T00:00:00");
+  d.setDate(d.getDate()+idx);
+  return fmtLocalDate(d);
+}
+
 function selectTabDay(day){
   curTabDay=day;
+  const today=getToday();
 
-  // 일요일 탭 → 주간 평균 모드
+  // 일요일 탭 → 주간 평균 모드 (항상 "이번 주" 기준)
   if(day==="일"){
     weekAvgMode=true;
     renderWeekAvg();
@@ -674,20 +680,19 @@ function selectTabDay(day){
   }
 
   weekAvgMode=false;
-  // 현재 선택된 날짜와 같은 주에서 해당 요일의 날짜를 찾음
-  const sameWeekDates=getDatesInSameWeek(curDate);
+  // 실제 "이번 주"에서 해당 요일의 날짜를 찾음
+  const sameWeekDates=getDatesInSameWeek(today);
   const match=sameWeekDates.find(ds=>BYDATE[ds].weekday.replace("요일","")=== day);
-  if(match){
-    curDate=match;
-    render();
-    toast(day+"요일 기록을 불러왔어요");
-    window.scrollTo({top:0,behavior:"smooth"});
-  }
+  const target=match||getDateForWeekdayInWeek(getWeekStart(today),day);
+  curDate=target;
+  render();
+  toast(match?day+"요일 기록을 불러왔어요":day+"요일은 아직 데이터가 없어요");
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function renderWeekAvg(){
   renderTabs();
-  const result=calcWeekAvg(curDate);
+  const result=calcWeekAvg(getToday());
 
   if(!result){
     document.getElementById("kpis").innerHTML=`
@@ -814,9 +819,9 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     BYDATE=parsed.bydate;
     STAGES=parsed.stages;
     if(parsed.guildName)applyGuildName(parsed.guildName);
-    /* 가장 최근 날짜를 기본으로 표시 (단, 새 주가 시작되어 이번 주 데이터가 아직 없다면 오늘 날짜를 기본으로) */
+    /* 가장 최근 날짜를 기본으로 표시 (탭은 항상 실제 "이번 주" 기준으로 별도 계산됨) */
     const dates=Object.keys(BYDATE).sort();
-    curDate=pickDefaultDate(dates);
+    curDate=dates[dates.length-1]||null;
     /* localStorage 저장 */
     try{localStorage.setItem("guildwar_data",JSON.stringify({BYDATE,STAGES,guildName:GUILD_NAME,savedAt:new Date().toISOString()}));}catch(e){}
     const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
@@ -835,7 +840,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
         if(p.STAGES)STAGES=p.STAGES;
         if(p.guildName)applyGuildName(p.guildName);
         const dates=Object.keys(BYDATE).sort();
-        curDate=pickDefaultDate(dates);
+        curDate=dates[dates.length-1]||null;
         render();
         toast("⚠️ 오프라인 저장 데이터로 표시합니다","err");
         return;
