@@ -360,15 +360,30 @@ const WD_KOR=["일","월","화","수","목","금","토"];
 let STAGES=[];   // [{min,stage,range}]
 let BYDATE={};   // "YYYY-MM-DD" → {players,summary,weekday}
 let curDate=null; // 현재 보고 있는 날짜
-let GUILD_NAME="[ 빌 런 ] 착한사람들"; // 엑셀의 guild 마커 행에서 갱신됨 (기본값)
+let GUILD_ROWS=[]; // [{date,name}] — 엑셀 "guild" 마커 행들 (주마다 바뀌는 상대 길드명)
 
-function applyGuildName(name){
-  if(!name)return;
-  GUILD_NAME=name;
+/* refDate가 속한 주의 상대 길드명을 찾는다.
+   1) 그 주(월~일) 안에 날짜가 찍힌 마커가 있으면 그것을 사용
+   2) 없으면 그 주 이전(가장 최근)의 마커를 사용 (다음 마커가 등록되기 전까지는 직전 길드명 유지)
+   3) 마커가 전혀 없으면 null */
+function getGuildNameForWeek(refDate){
+  if(!refDate||!GUILD_ROWS.length)return null;
+  const ws=getWeekStart(refDate);
+  const sameWeek=GUILD_ROWS.find(r=>getWeekStart(r.date)===ws);
+  if(sameWeek)return sameWeek.name;
+  const prior=GUILD_ROWS.filter(r=>getWeekStart(r.date)<=ws);
+  return prior.length?prior[prior.length-1].name:null;
+}
+
+function updateGuildBadge(refDate){
   const badge=document.getElementById("guildBadge");
-  if(badge){
+  if(!badge)return;
+  const name=getGuildNameForWeek(refDate);
+  if(name){
     badge.style.display="inline-flex";
-    badge.innerHTML=`<span class="ic">🛡️</span> 길드명 : <b>${esc(name)}</b>`;
+    badge.innerHTML=`<span class="ic">🛡️</span> 상대 길드 : <b>${esc(name)}</b>`;
+  }else{
+    badge.style.display="none";
   }
 }
 
@@ -461,16 +476,17 @@ function parseWorkbook(wb){
   });
 
   // 길드명 마커 중 가장 최근 날짜의 것을 채택
+  // 길드명 마커들을 날짜순으로 정렬해서 모두 반환 (주마다 바뀌므로 하나만 쓰지 않음)
   guildRows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  const guildName=guildRows.length?guildRows[guildRows.length-1].name:null;
 
-  return {bydate:bydateFinal,stages,totalPlayers:total,guildName};
+  return {bydate:bydateFinal,stages,totalPlayers:total,guildRows};
 }
 
 /* ── 렌더 ── */
 function render(){
   weekAvgMode=false;
   renderTabs();
+  updateGuildBadge(curDate);
   if(!curDate||!BYDATE[curDate]){
     // 데이터 없는 날짜 선택됨
     document.getElementById("kpis").innerHTML=`
@@ -519,7 +535,7 @@ function rowHTML(p){
   const top=p.rank<=3?" top":"";
   return `<div class="row${top}${mine}" data-r="${p.rank}" data-n="${esc(p.player)}">
     <div class="rk num">${p.rank}</div>
-    <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg">${esc(GUILD_NAME)}${mine?` · <span class="me">내 기록</span>`:""}</div></div>
+    <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg">[ 빌 런 ] 착한사람들${mine?` · <span class="me">내 기록</span>`:""}</div></div>
     <div class="sright"><div class="scv num">${fmt(p.score)}</div><div class="tag" style="background:${c}22;color:${c}">${esc(p.stage||"-")}</div></div></div>`;
 }
 function renderDist(S,empty){
@@ -692,6 +708,7 @@ function selectTabDay(day){
 
 function renderWeekAvg(){
   renderTabs();
+  updateGuildBadge(getToday());
   const result=calcWeekAvg(getToday());
 
   if(!result){
@@ -818,12 +835,13 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     if(parsed.totalPlayers===0){toast("엑셀에 플레이어 데이터가 없어요.","err");return;}
     BYDATE=parsed.bydate;
     STAGES=parsed.stages;
-    if(parsed.guildName)applyGuildName(parsed.guildName);
+    GUILD_ROWS=parsed.guildRows||[];
     /* 가장 최근 날짜를 기본으로 표시 (탭은 항상 실제 "이번 주" 기준으로 별도 계산됨) */
     const dates=Object.keys(BYDATE).sort();
     curDate=dates[dates.length-1]||null;
+    updateGuildBadge(curDate);
     /* localStorage 저장 */
-    try{localStorage.setItem("guildwar_data",JSON.stringify({BYDATE,STAGES,guildName:GUILD_NAME,savedAt:new Date().toISOString()}));}catch(e){}
+    try{localStorage.setItem("guildwar_data",JSON.stringify({BYDATE,STAGES,guildRows:GUILD_ROWS,savedAt:new Date().toISOString()}));}catch(e){}
     const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
     setTxt("srcLabel","자동 업데이트");
     setTxt("dateVal",new Date().toLocaleDateString("ko-KR"));
@@ -838,9 +856,10 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
         const p=JSON.parse(saved);
         if(p.BYDATE)BYDATE=p.BYDATE;
         if(p.STAGES)STAGES=p.STAGES;
-        if(p.guildName)applyGuildName(p.guildName);
+        if(p.guildRows)GUILD_ROWS=p.guildRows;
         const dates=Object.keys(BYDATE).sort();
         curDate=dates[dates.length-1]||null;
+        updateGuildBadge(curDate);
         render();
         toast("⚠️ 오프라인 저장 데이터로 표시합니다","err");
         return;
@@ -928,7 +947,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
   }
   function fmtUtcNow(){
     const d=new Date(),p=n=>String(n).padStart(2,"0");
-    return `UTC ${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} ${GUILD_NAME}`;
+    return `UTC ${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} [빌 런] 착한사람들`;
   }
 
   const noticeModal=document.getElementById("noticeModal");
