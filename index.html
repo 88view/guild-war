@@ -713,26 +713,25 @@ function renderTabs(){
   const tabsEl=document.getElementById("dayTabs");
   if(!tabsEl)return;
 
-  // 탭은 항상 "오늘(실제 달력 기준 이번 주)"을 기준으로 채운다.
-  // curDate가 지난 주의 최신 기록을 보여주고 있어도, 그 지난 주 데이터가
-  // 이번 주 탭(화~토 등)에 그대로 묻어 보이지 않도록 분리함.
+  // 탭은 "현재 보고 있는 날짜(curDate)가 속한 주"를 기준으로 채운다.
+  // curDate가 없으면 오늘이 속한 주(=이번 주)를 기준으로 한다.
   const today=getToday();
-  const sameWeekDates=getDatesInSameWeek(today);
-  const dayMap={}; // "월" → [날짜배열] (이번 주 내)
-  sameWeekDates.forEach(ds=>{
+  const refDateForWeek=curDate||today;
+  const weekDates=getDatesInSameWeek(refDateForWeek);
+  const dayMap={}; // "월" → [날짜배열] (탭 기준 주 내)
+  weekDates.forEach(ds=>{
     const wd=BYDATE[ds].weekday.replace("요일","");
     if(!dayMap[wd])dayMap[wd]=[];
     dayMap[wd].push(ds);
   });
-  const curInThisWeek=curDate&&getWeekStart(curDate)===getWeekStart(today);
 
   tabsEl.innerHTML=DAY_ORDER.map(d=>{
     const datesInWeek=dayMap[d]||[];
-    // 일요일은 주간 평균 탭 — 이번 주에 데이터가 하나라도 있으면 활성
-    const has=d==="일" ? sameWeekDates.filter(ds=>{const dow=new Date(ds+"T00:00:00").getDay();return dow>=1&&dow<=6;}).length>0 : datesInWeek.length>0;
-    const isActive=weekAvgMode ? d==="일" : (curInThisWeek&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
+    const has=d==="일" ? weekDates.filter(ds=>{const dow=new Date(ds+"T00:00:00").getDay();return dow>=1&&dow<=6;}).length>0 : datesInWeek.length>0;
+    const isActive=weekAvgMode ? d==="일" : (curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
     const cls="tab"+(isActive?" active":"")+(has?"":" empty");
     const dot=has?'<span class="dot"></span>':"";
+    
     // 해당 요일의 승/패 결과 확인 (1위 기준)
     let resultText="";
     if(d!=="일"&&datesInWeek.length>0){
@@ -741,7 +740,6 @@ function renderTabs(){
       if(wr==="승")resultText=' <span style="color:#46cf86;font-weight:700">(승)</span>';
       else if(wr==="패")resultText=' <span style="color:#ff5e7e;font-weight:700">(패)</span>';
     }
-    // disabled 속성 제거 → 클릭 이벤트가 항상 발화되도록 함
     return `<button class="${cls}" data-day="${d}">${d}요일${resultText}${dot}</button>`;
   }).join("");
   // 모든 탭에 클릭 이벤트 부여 (데이터 없는 요일은 selectTabDay 내부에서 처리)
@@ -751,48 +749,10 @@ function renderTabs(){
   renderWeekScoreSection();
 }
 
-/* ── 요일별 스코어 섹션 (탭 아래) ── */
 function renderWeekScoreSection(){
+  // 요일탭 아래 섹션은 비워두기 (상단 스코어보드에만 표시)
   const sec=document.getElementById("weekScoreSection");
-  if(!sec)return;
-  const today=getToday();
-  const ws=getWeekStart(today);
-  const weekEnd=new Date(ws+"T00:00:00");
-  weekEnd.setDate(weekEnd.getDate()+5);
-  const weekEndStr=fmtLocalDate(weekEnd);
-  const DOW=["월","화","수","목","금","토"];
-
-  const weekDates=Object.keys(BYDATE).filter(ds=>{
-    const d=new Date(ds+"T00:00:00"),dow=d.getDay();
-    return ds>=ws&&ds<=weekEndStr&&dow>=1&&dow<=6;
-  });
-
-  if(weekDates.length===0){sec.innerHTML="";return;}
-
-  const enemyName=getGuildNameForWeek(today)||"상대 길드";
-  let wins=0,loses=0;
-  const cells=DOW.map(d=>{
-    const ds=weekDates.find(x=>BYDATE[x].weekday.replace("요일","")=== d);
-    if(ds){
-      const wr=BYDATE[ds].winResult;
-      if(wr==="승")wins++;
-      else if(wr==="패")loses++;
-      return {d,wr:wr||null};
-    }
-    return {d,wr:null};
-  });
-
-  sec.innerHTML=`
-    <div class="week-score-section">
-      <div class="week-score-title">🏆 이번 주 길드전 스코어
-        <span class="week-score-enemy">vs <b>${esc(enemyName)}</b></span>
-      </div>
-      <div class="wk-score-total">
-        <span>[ 빌 런 ] 착한사람들</span>
-        <span class="wt-w">${wins}승</span><span class="wt-sep">:</span><span class="wt-l">${loses}패</span>
-        <span>${esc(enemyName)}</span>
-      </div>
-    </div>`;
+  if(sec) sec.innerHTML="";
 }
 
 /* ── 주간 평균 계산 ── */
@@ -848,41 +808,44 @@ function getDateForWeekdayInWeek(weekStartStr,dayKor){
 
 function selectTabDay(day){
   curTabDay=day;
-  const today=getToday();
+  // 탭이 표시 중인 기준 주(= curDate가 속한 주, 없으면 이번 주)를 그대로 사용
+  const refDateForWeek=curDate||getToday();
+  const weekStart=getWeekStart(refDateForWeek);
 
-  // 일요일 탭 → 주간 평균 모드 (항상 "이번 주" 기준)
+  // 일요일 탭 → 주간 평균 모드 (탭이 표시 중인 주 기준)
   if(day==="일"){
     weekAvgMode=true;
-    renderWeekAvg();
-    toast("📊 이번 주 평균 랭킹");
+    renderWeekAvg(weekStart);
+    toast("📊 "+(weekStart===getWeekStart(getToday())?"이번 주":"해당 주")+" 평균 랭킹");
     window.scrollTo({top:0,behavior:"smooth"});
     return;
   }
 
   weekAvgMode=false;
-  // 실제 "이번 주"에서 해당 요일의 날짜를 찾음
-  const sameWeekDates=getDatesInSameWeek(today);
-  const match=sameWeekDates.find(ds=>BYDATE[ds].weekday.replace("요일","")=== day);
-  const target=match||getDateForWeekdayInWeek(getWeekStart(today),day);
+  // 탭이 표시 중인 주에서 해당 요일의 날짜를 찾음
+  const weekDates=getDatesInSameWeek(refDateForWeek);
+  const match=weekDates.find(ds=>BYDATE[ds].weekday.replace("요일","")=== day);
+  const target=match||getDateForWeekdayInWeek(weekStart,day);
   curDate=target;
   render();
   toast(match?day+"요일 기록을 불러왔어요":day+"요일은 아직 데이터가 없어요");
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
-function renderWeekAvg(){
+function renderWeekAvg(refDate){
+  refDate=refDate||getToday();
   renderTabs();
-  updateGuildBadge(getToday());
-  const result=calcWeekAvg(getToday());
+  updateGuildBadge(refDate);
+  const result=calcWeekAvg(refDate);
 
   if(!result){
     document.getElementById("kpis").innerHTML=`
-      <div class="kpi"><div class="lab">주간 평균</div><div class="val">—</div><div class="meta">이번 주 데이터 없음</div></div>
+      <div class="kpi"><div class="lab">주간 평균</div><div class="val">—</div><div class="meta">해당 주 데이터 없음</div></div>
       <div class="kpi b"><div class="lab">참여 인원</div><div class="val">—</div><div class="meta"></div></div>
       <div class="kpi c"><div class="lab">평균 포인트</div><div class="val">—</div><div class="meta"></div></div>
       <div class="kpi d"><div class="lab">1위 평균</div><div class="val">—</div><div class="meta"></div></div>`;
     document.getElementById("podium").innerHTML="";
-    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📊</div><p>이번 주 데이터가 없습니다.</p></div>`;
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📊</div><p>해당 주 데이터가 없습니다.</p></div>`;
     renderDist({},true); return;
   }
 
