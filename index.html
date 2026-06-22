@@ -244,6 +244,7 @@
   </header>
 
   <div class="datebadge" id="dateBadge" style="display:none;">
+    <span class="ic">📅</span>
     <span class="txt" id="badgeTxt"></span>
     <button class="clr" id="badgeClr">최신 날짜로</button>
   </div>
@@ -353,6 +354,15 @@ const WD_KOR=["일","월","화","수","목","금","토"];
 let STAGES=[];   // [{min,stage,range}]
 let BYDATE={};   // "YYYY-MM-DD" → {players,summary,weekday}
 let curDate=null; // 현재 보고 있는 날짜
+let GUILD_NAME="[ 빌 런 ] 착한사람들"; // 엑셀의 guild 마커 행에서 갱신됨 (기본값)
+
+function applyGuildName(name){
+  if(!name)return;
+  GUILD_NAME=name;
+  document.title=`길드전 랭킹 대시보드 · ${GUILD_NAME}`;
+  const h1guild=document.querySelector(".brand h1 .guild");
+  if(h1guild)h1guild.textContent=GUILD_NAME;
+}
 
 /* ── 유틸 ── */
 function summarize(players){
@@ -391,6 +401,7 @@ function parseWorkbook(wb){
   const JA=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null});
   const bydate={};
   const stages=[];
+  const guildRows=[]; // {date, name} — 길드명 마커 행 ("guild" 마커)
 
   // 1) 기준표 — 1행이 헤더(하한점수/단계/점수범위), 2행~가 데이터
   const kb=wb.Sheets["기준표"];
@@ -411,6 +422,12 @@ function parseWorkbook(wb){
     const rows=JA(ws);
     // row.A 가 "날짜" 또는 설명 텍스트인 행은 헤더이므로 건너뜀
     rows.forEach(row=>{
+      // 길드명 마커 행: B열이 "guild" 이면 A열=날짜, C열=길드명
+      if(typeof row.B==="string"&&row.B.trim().toLowerCase()==="guild"){
+        const gds=normDate(row.A);
+        if(gds&&row.C)guildRows.push({date:gds,name:String(row.C).trim()});
+        return;
+      }
       // A열이 날짜 형식이어야만 데이터 행으로 인식
       const ds=normDate(row.A);
       const pl=row.C, sc=row.D, st=row.E;
@@ -435,7 +452,11 @@ function parseWorkbook(wb){
     bydateFinal[ds]={players:arr, summary:summarize(arr), weekday:weekdayOf(ds)};
   });
 
-  return {bydate:bydateFinal,stages,totalPlayers:total};
+  // 길드명 마커 중 가장 최근 날짜의 것을 채택
+  guildRows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const guildName=guildRows.length?guildRows[guildRows.length-1].name:null;
+
+  return {bydate:bydateFinal,stages,totalPlayers:total,guildName};
 }
 
 /* ── 렌더 ── */
@@ -490,7 +511,7 @@ function rowHTML(p){
   const top=p.rank<=3?" top":"";
   return `<div class="row${top}${mine}" data-r="${p.rank}" data-n="${esc(p.player)}">
     <div class="rk num">${p.rank}</div>
-    <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg">[ 빌 런 ] 착한사람들${mine?` · <span class="me">내 기록</span>`:""}</div></div>
+    <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg">${esc(GUILD_NAME)}${mine?` · <span class="me">내 기록</span>`:""}</div></div>
     <div class="sright"><div class="scv num">${fmt(p.score)}</div><div class="tag" style="background:${c}22;color:${c}">${esc(p.stage||"-")}</div></div></div>`;
 }
 function renderDist(S,empty){
@@ -548,6 +569,17 @@ function getDatesInSameWeek(refDate){
   weekEnd.setDate(weekEnd.getDate()+6);
   const weekEndStr=fmtLocalDate(weekEnd); // 동일한 이유로 toISOString() 대신 로컬 포맷 사용
   return Object.keys(BYDATE).filter(ds=>ds>=weekStart&&ds<=weekEndStr);
+}
+
+/* 데이터의 최신 날짜가 "오늘" 기준 주와 다르면(=새 주가 시작됐는데 아직 그 주 데이터가 없는 경우)
+   지난 주 탭이 그대로 보이는 문제를 막기 위해, 오늘 날짜를 기본값으로 사용한다.
+   (오늘 날짜에 데이터가 없으면 render()가 "데이터 없음" 상태로 표시하고, 탭은 이번 주 기준으로만 채워진다) */
+function pickDefaultDate(dates){
+  if(!dates.length)return fmtLocalDate(new Date());
+  const latest=dates[dates.length-1];
+  const today=fmtLocalDate(new Date());
+  if(getWeekStart(latest)===getWeekStart(today))return latest;
+  return today;
 }
 
 function renderTabs(){
@@ -773,11 +805,12 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     if(parsed.totalPlayers===0){toast("엑셀에 플레이어 데이터가 없어요.","err");return;}
     BYDATE=parsed.bydate;
     STAGES=parsed.stages;
-    /* 가장 최근 날짜를 기본으로 표시 */
+    if(parsed.guildName)applyGuildName(parsed.guildName);
+    /* 가장 최근 날짜를 기본으로 표시 (단, 새 주가 시작되어 이번 주 데이터가 아직 없다면 오늘 날짜를 기본으로) */
     const dates=Object.keys(BYDATE).sort();
-    curDate=dates[dates.length-1]||null;
+    curDate=pickDefaultDate(dates);
     /* localStorage 저장 */
-    try{localStorage.setItem("guildwar_data",JSON.stringify({BYDATE,STAGES,savedAt:new Date().toISOString()}));}catch(e){}
+    try{localStorage.setItem("guildwar_data",JSON.stringify({BYDATE,STAGES,guildName:GUILD_NAME,savedAt:new Date().toISOString()}));}catch(e){}
     const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
     setTxt("srcLabel","자동 업데이트");
     setTxt("dateVal",new Date().toLocaleDateString("ko-KR"));
@@ -792,8 +825,9 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
         const p=JSON.parse(saved);
         if(p.BYDATE)BYDATE=p.BYDATE;
         if(p.STAGES)STAGES=p.STAGES;
+        if(p.guildName)applyGuildName(p.guildName);
         const dates=Object.keys(BYDATE).sort();
-        curDate=dates[dates.length-1]||null;
+        curDate=pickDefaultDate(dates);
         render();
         toast("⚠️ 오프라인 저장 데이터로 표시합니다","err");
         return;
@@ -881,7 +915,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
   }
   function fmtUtcNow(){
     const d=new Date(),p=n=>String(n).padStart(2,"0");
-    return `UTC ${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} [빌 런] 착한사람들`;
+    return `UTC ${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} ${GUILD_NAME}`;
   }
 
   const noticeModal=document.getElementById("noticeModal");
