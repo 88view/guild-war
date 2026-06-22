@@ -489,11 +489,8 @@ function updateScoreboard(refDate){
     enemyEl.title=enemyName;
   }
 
-  daysEl.innerHTML=dayResults.map(({d,wr})=>{
-    const cls=wr==="승"?"win":wr==="패"?"lose":"none";
-    const label=wr?`${d} (${wr})`:`${d} ?`;
-    return `<span class="sb-day ${cls}">${label}</span>`;
-  }).join("");
+  // 일/월 버튼 숨김
+  daysEl.innerHTML="";
 
   sb.classList.add("show");
 }
@@ -584,7 +581,8 @@ function parseWorkbook(wb){
     arr.sort((a,b)=>b.score-a.score);
     arr.forEach((p,i)=>p.rank=i+1);
     total+=arr.length;
-    const rank1Result = arr.find(p=>p.winResult)?.winResult || null;
+    // 1위 플레이어의 승/패 결과만 참조
+    const rank1Result = arr[0]?.winResult || null;
     bydateFinal[ds]={players:arr, summary:summarize(arr), weekday:weekdayOf(ds), winResult:rank1Result};
   });
 
@@ -789,11 +787,6 @@ function renderWeekScoreSection(){
       <div class="week-score-title">🏆 이번 주 길드전 스코어
         <span class="week-score-enemy">vs <b>${esc(enemyName)}</b></span>
       </div>
-      <div class="wk-score-grid">`+cells.map(({d,wr})=>{
-        const cls=wr==="승"?"win":wr==="패"?"lose":"none";
-        const label=wr||"?";
-        return '<div class="wk-score-cell '+cls+'"><div class="wk-day">'+d+'요일</div><div class="wk-result">'+label+'</div></div>';
-      }).join("")+`</div>
       <div class="wk-score-total">
         <span>[ 빌 런 ] 착한사람들</span>
         <span class="wt-w">${wins}승</span><span class="wt-sep">:</span><span class="wt-l">${loses}패</span>
