@@ -125,6 +125,54 @@
   .empty-state{padding:60px 20px;text-align:center;color:var(--dim)}
   .empty-state .ico{font-size:40px;opacity:.5;margin-bottom:12px}
   .empty-state p{font-size:14px;line-height:1.6}
+
+  /* 요일탭 승/패 뱃지 */
+  .tab-result{display:inline-block;font-size:10px;font-weight:900;padding:1px 5px;border-radius:5px;margin-left:4px;vertical-align:middle;letter-spacing:.04em}
+  .tab-result.win{background:rgba(70,207,134,.25);color:#46cf86;border:1px solid rgba(70,207,134,.4)}
+  .tab-result.lose{background:rgba(255,94,126,.2);color:#ff5e7e;border:1px solid rgba(255,94,126,.35)}
+  .tab.active .tab-result.win{background:rgba(0,0,0,.18);color:#1a6640;border-color:rgba(0,0,0,.2)}
+  .tab.active .tab-result.lose{background:rgba(0,0,0,.18);color:#7a1220;border-color:rgba(0,0,0,.2)}
+
+  /* 주간 스코어보드 */
+  .scoreboard{background:linear-gradient(135deg,rgba(244,196,81,.12),rgba(244,196,81,.04));border:1px solid rgba(244,196,81,.35);border-radius:14px;padding:14px 20px;margin-bottom:20px;display:none}
+  .scoreboard.show{display:block}
+  .scoreboard .sb-title{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+  .scoreboard .sb-body{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap}
+  .scoreboard .sb-guild{font-size:17px;font-weight:900;letter-spacing:-.01em}
+  .scoreboard .sb-guild.us{color:var(--gold)}
+  .scoreboard .sb-guild.them{color:var(--muted)}
+  .scoreboard .sb-score{font-size:28px;font-weight:900;letter-spacing:.04em;padding:0 16px;font-variant-numeric:tabular-nums}
+  .scoreboard .sb-score .w{color:var(--mine)}
+  .scoreboard .sb-score .sep{color:var(--dim);margin:0 4px}
+  .scoreboard .sb-score .l{color:var(--s9)}
+  .scoreboard .sb-days{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+  .scoreboard .sb-day{font-size:11px;font-weight:800;padding:3px 9px;border-radius:7px}
+  .scoreboard .sb-day.win{background:rgba(70,207,134,.2);color:#46cf86;border:1px solid rgba(70,207,134,.35)}
+  .scoreboard .sb-day.lose{background:rgba(255,94,126,.18);color:#ff5e7e;border:1px solid rgba(255,94,126,.3)}
+  .scoreboard .sb-day.none{background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--line)}
+
+  /* 요일별 스코어 테이블 (탭 아래) */
+  .week-score-section{padding:14px 20px 18px;border-bottom:1px solid var(--line)}
+  .week-score-title{font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+  .week-score-enemy{font-size:12px;color:var(--muted);font-weight:600}
+  .week-score-enemy b{color:var(--tx)}
+  .wk-score-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .wk-score-cell{border-radius:10px;padding:8px 6px;text-align:center;border:1px solid var(--line);background:var(--panel2)}
+  .wk-score-cell.win{background:rgba(70,207,134,.15);border-color:rgba(70,207,134,.4)}
+  .wk-score-cell.lose{background:rgba(255,94,126,.12);border-color:rgba(255,94,126,.3)}
+  .wk-score-cell.none{opacity:.55}
+  .wk-score-cell .wk-day{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:4px}
+  .wk-score-cell.win .wk-day{color:#46cf86}
+  .wk-score-cell.lose .wk-day{color:#ff5e7e}
+  .wk-score-cell .wk-result{font-size:15px;font-weight:900}
+  .wk-score-cell.win .wk-result{color:#46cf86}
+  .wk-score-cell.lose .wk-result{color:#ff5e7e}
+  .wk-score-cell.none .wk-result{color:var(--dim);font-size:13px}
+  .wk-score-total{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;font-size:14px;font-weight:800}
+  .wk-score-total .wt-w{color:#46cf86}
+  .wk-score-total .wt-sep{color:var(--dim)}
+  .wk-score-total .wt-l{color:#ff5e7e}
+
   .foot{text-align:center;color:var(--dim);font-size:11.5px;margin-top:28px}
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--raised);
     border:1px solid var(--line2);color:var(--tx);font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:12px;
@@ -253,11 +301,21 @@
     <button class="clr" id="badgeClr">최신 날짜로</button>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div class="scoreboard" id="scoreboard">
+    <div class="sb-title">🏆 이번 주 길드전 스코어</div>
+    <div class="sb-body">
+      <span class="sb-guild us">[ 빌 런 ] 착한사람들</span>
+      <span class="sb-score"><span class="w" id="sbWin">0</span><span class="sep">:</span><span class="l" id="sbLose">0</span></span>
+      <span class="sb-guild them" id="sbEnemy">—</span>
+    </div>
+    <div class="sb-days" id="sbDays"></div>
+  </div>
   <div class="guildbadge" id="guildBadge" style="display:none;"></div>
 
   <div class="grid">
     <div class="card">
       <div class="tabs" id="dayTabs"></div>
+      <div id="weekScoreSection"></div>
       <div class="card-h">
         <h2>랭킹 <span class="hint" id="rankhint"></span></h2>
         <div class="search">
@@ -384,6 +442,60 @@ function updateGuildBadge(refDate){
   }else{
     badge.style.display="none";
   }
+  updateScoreboard(refDate);
+}
+
+function updateScoreboard(refDate){
+  const sb=document.getElementById("scoreboard");
+  if(!sb)return;
+  const enemyEl=document.getElementById("sbEnemy");
+  const winEl=document.getElementById("sbWin");
+  const loseEl=document.getElementById("sbLose");
+  const daysEl=document.getElementById("sbDays");
+
+  // 해당 주 월~토 날짜 수집
+  const ws=getWeekStart(refDate||getToday());
+  const weekEnd=new Date(ws+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+5);
+  const weekEndStr=fmtLocalDate(weekEnd);
+  const DOW_NAMES=["월","화","수","목","금","토"];
+
+  // 이번 주 데이터 날짜들 (월~토)
+  const weekDates=Object.keys(BYDATE).filter(ds=>{
+    const d=new Date(ds+"T00:00:00"),dow=d.getDay();
+    return ds>=ws&&ds<=weekEndStr&&dow>=1&&dow<=6;
+  });
+
+  if(weekDates.length===0){sb.classList.remove("show");return;}
+
+  const enemyName=getGuildNameForWeek(refDate||getToday())||"상대 길드";
+
+  let wins=0,loses=0;
+  const dayResults=[];
+  DOW_NAMES.forEach(d=>{
+    const ds=weekDates.find(x=>BYDATE[x].weekday.replace("요일","")=== d);
+    if(ds){
+      const wr=BYDATE[ds].winResult;
+      if(wr==="승")wins++;
+      else if(wr==="패")loses++;
+      dayResults.push({d,wr:wr||null,ds});
+    }
+  });
+
+  winEl.textContent=wins;
+  loseEl.textContent=loses;
+  if(enemyEl){
+    enemyEl.textContent=enemyName;
+    enemyEl.title=enemyName;
+  }
+
+  daysEl.innerHTML=dayResults.map(({d,wr})=>{
+    const cls=wr==="승"?"win":wr==="패"?"lose":"none";
+    const label=wr?`${d} (${wr})`:`${d} ?`;
+    return `<span class="sb-day ${cls}">${label}</span>`;
+  }).join("");
+
+  sb.classList.add("show");
 }
 
 /* ── 유틸 ── */
@@ -452,12 +564,13 @@ function parseWorkbook(wb){
       }
       // A열이 날짜 형식이어야만 데이터 행으로 인식
       const ds=normDate(row.A);
-      const pl=row.C, sc=row.D, st=row.E;
+      const pl=row.C, sc=row.D, st=row.E, wr=row.F;
       if(ds&&pl&&typeof sc==="number"){
         if(!bydate[ds])bydate[ds]=[];
         bydate[ds].push({
           player:String(pl).trim(),score:sc,
-          stage:st&&String(st).includes("단계")?String(st).trim():stageFromScore(sc,stages)
+          stage:st&&String(st).includes("단계")?String(st).trim():stageFromScore(sc,stages),
+          winResult:(typeof wr==="string"&&(wr.trim()==="승"||wr.trim()==="패"))?wr.trim():null
         });
       }
     });
@@ -471,7 +584,8 @@ function parseWorkbook(wb){
     arr.sort((a,b)=>b.score-a.score);
     arr.forEach((p,i)=>p.rank=i+1);
     total+=arr.length;
-    bydateFinal[ds]={players:arr, summary:summarize(arr), weekday:weekdayOf(ds)};
+    const rank1Result = arr.find(p=>p.winResult)?.winResult || null;
+    bydateFinal[ds]={players:arr, summary:summarize(arr), weekday:weekdayOf(ds), winResult:rank1Result};
   });
 
   // 길드명 마커 중 가장 최근 날짜의 것을 채택
@@ -621,13 +735,71 @@ function renderTabs(){
     const isActive=weekAvgMode ? d==="일" : (curInThisWeek&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
     const cls="tab"+(isActive?" active":"")+(has?"":" empty");
     const dot=has?'<span class="dot"></span>':"";
+    // 해당 요일의 승/패 결과 확인 (1위 기준)
+    let resultText="";
+    if(d!=="일"&&datesInWeek.length>0){
+      const ds=datesInWeek[datesInWeek.length-1];
+      const wr=BYDATE[ds]&&BYDATE[ds].winResult;
+      if(wr==="승")resultText=' <span style="color:#46cf86;font-weight:700">(승)</span>';
+      else if(wr==="패")resultText=' <span style="color:#ff5e7e;font-weight:700">(패)</span>';
+    }
     // disabled 속성 제거 → 클릭 이벤트가 항상 발화되도록 함
-    return `<button class="${cls}" data-day="${d}">${d}요일${dot}</button>`;
+    return `<button class="${cls}" data-day="${d}">${d}요일${resultText}${dot}</button>`;
   }).join("");
   // 모든 탭에 클릭 이벤트 부여 (데이터 없는 요일은 selectTabDay 내부에서 처리)
   tabsEl.querySelectorAll(".tab").forEach(btn=>{
     btn.onclick=()=>selectTabDay(btn.dataset.day);
   });
+  renderWeekScoreSection();
+}
+
+/* ── 요일별 스코어 섹션 (탭 아래) ── */
+function renderWeekScoreSection(){
+  const sec=document.getElementById("weekScoreSection");
+  if(!sec)return;
+  const today=getToday();
+  const ws=getWeekStart(today);
+  const weekEnd=new Date(ws+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+5);
+  const weekEndStr=fmtLocalDate(weekEnd);
+  const DOW=["월","화","수","목","금","토"];
+
+  const weekDates=Object.keys(BYDATE).filter(ds=>{
+    const d=new Date(ds+"T00:00:00"),dow=d.getDay();
+    return ds>=ws&&ds<=weekEndStr&&dow>=1&&dow<=6;
+  });
+
+  if(weekDates.length===0){sec.innerHTML="";return;}
+
+  const enemyName=getGuildNameForWeek(today)||"상대 길드";
+  let wins=0,loses=0;
+  const cells=DOW.map(d=>{
+    const ds=weekDates.find(x=>BYDATE[x].weekday.replace("요일","")=== d);
+    if(ds){
+      const wr=BYDATE[ds].winResult;
+      if(wr==="승")wins++;
+      else if(wr==="패")loses++;
+      return {d,wr:wr||null};
+    }
+    return {d,wr:null};
+  });
+
+  sec.innerHTML=`
+    <div class="week-score-section">
+      <div class="week-score-title">🏆 이번 주 길드전 스코어
+        <span class="week-score-enemy">vs <b>${esc(enemyName)}</b></span>
+      </div>
+      <div class="wk-score-grid">`+cells.map(({d,wr})=>{
+        const cls=wr==="승"?"win":wr==="패"?"lose":"none";
+        const label=wr||"?";
+        return '<div class="wk-score-cell '+cls+'"><div class="wk-day">'+d+'요일</div><div class="wk-result">'+label+'</div></div>';
+      }).join("")+`</div>
+      <div class="wk-score-total">
+        <span>[ 빌 런 ] 착한사람들</span>
+        <span class="wt-w">${wins}승</span><span class="wt-sep">:</span><span class="wt-l">${loses}패</span>
+        <span>${esc(enemyName)}</span>
+      </div>
+    </div>`;
 }
 
 /* ── 주간 평균 계산 ── */
@@ -763,6 +935,8 @@ function renderWeekAvg(){
       <div class="sright"><div class="scv num">${fmt(p.score)}</div></div></div>`;
   }).join("");
   attachRows(); renderDist(S,false); renderTable(); applyFilter();
+  // 주간 스코어 섹션도 렌더링
+  renderWeekScoreSection();
 }
 
 let tT;
