@@ -302,7 +302,7 @@
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="scoreboard" id="scoreboard">
-    <div class="sb-title">🏆 이번 주 길드전 스코어</div>
+    <div class="sb-title">🏆 이번 주 길드전 승점 <span style="font-size:10px;color:rgba(244,196,81,.65);font-weight:600;letter-spacing:.04em">월 1점 · 화~금 2점 · 토 4점</span></div>
     <div class="sb-body">
       <span class="sb-guild us">[ 빌 런 ] 착한사람들</span>
       <span class="sb-score"><span class="w" id="sbWin">0</span><span class="sep">:</span><span class="l" id="sbLose">0</span></span>
@@ -470,15 +470,19 @@ function updateScoreboard(refDate){
 
   const enemyName=getGuildNameForWeek(refDate||getToday())||"상대 길드";
 
+  // 요일별 승점 가중치: 월=1, 화~금=2, 토=4
+  const WIN_POINTS={"월":1,"화":2,"수":2,"목":2,"금":2,"토":4};
+
   let wins=0,loses=0;
   const dayResults=[];
   DOW_NAMES.forEach(d=>{
     const ds=weekDates.find(x=>BYDATE[x].weekday.replace("요일","")=== d);
     if(ds){
       const wr=BYDATE[ds].winResult;
-      if(wr==="승")wins++;
-      else if(wr==="패")loses++;
-      dayResults.push({d,wr:wr||null,ds});
+      const pt=WIN_POINTS[d]||1;
+      if(wr==="승")wins+=pt;
+      else if(wr==="패")loses+=pt;
+      dayResults.push({d,wr:wr||null,ds,pt});
     }
   });
 
