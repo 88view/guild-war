@@ -290,6 +290,7 @@
     <div class="rightcol">
       <div class="btnrow">
         <button class="calbtn" id="calBtn">📅 달력으로 보기</button>
+        <button class="calbtn" id="aliasBtn">🔗 닉네임 별칭 관리</button>
         <button class="calbtn" id="noticeBtn">📢 공지 작성</button>
       </div>
       <div class="datebox"><div class="d" id="srcLabel">집계 기준일</div><div class="v num" id="dateVal">2026.06.16</div></div>
@@ -348,6 +349,33 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-foot"><span class="leg"><i></i> 데이터 있는 날짜</span></div>
+  </div>
+</div>
+
+<!-- 닉네임 별칭 관리 모달 -->
+<div class="modal" id="aliasModal">
+  <div class="cal" style="width:min(560px,100%)">
+    <div class="cal-top">
+      <h3>🔗 닉네임 별칭 관리</h3>
+      <button class="cal-x" id="aliasClose">×</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:14px">
+      닉네임을 바꾼 길드원의 <b style="color:var(--tx)">과거 닉네임</b>과 <b style="color:var(--tx)">현재 닉네임</b>을 등록하면,
+      집계 시 같은 사람으로 합쳐서 주간 평균을 계산해요.<br>
+      <b style="color:var(--gold)">단, 여기서 등록한 내용은 이 브라우저에서 미리 확인하는 용도예요.</b>
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex:1;min-width:220px;align-items:center">
+        <input id="aliasFrom" placeholder="과거 닉네임" style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;border-radius:9px;padding:9px 11px;outline:none">
+        <span style="color:var(--dim);font-weight:800">→</span>
+        <input id="aliasTo" placeholder="현재 닉네임" style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;border-radius:9px;padding:9px 11px;outline:none">
+      </div>
+      <button class="calbtn" id="aliasAddBtn" style="white-space:nowrap;width:100%;justify-content:center">➕ 추가</button>
+    </div>
+    <div id="aliasList" style="max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:14px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="calbtn" id="aliasCopyBtn">📋 엑셀용 텍스트 복사</button>
+    </div>
   </div>
 </div>
 
@@ -528,6 +556,54 @@ function normDate(v){
   return null;
 }
 
+/* ── 닉네임 별칭(별칭 시트 + 로컬 미리보기) ──
+   엑셀 "별칭" 시트: A열=과거닉네임, B열=현재닉네임 (1행 헤더, 2행~ 데이터)
+   같은 사람이 닉네임을 바꿔도 주간 평균 등 모든 집계에서 "현재닉네임" 하나로 통합되도록
+   과거닉네임 → 최종 현재닉네임 매핑을 만든다 (체인 변경: A→B, B→C 인 경우 A,B 모두 C로 귀결).
+   이 브라우저에서 "별칭 관리" 모달로 등록한 항목(LOCAL_ALIASES, localStorage)도 엑셀 시트와 합쳐서 적용한다
+   (단, 실제로 길드원 전체에 반영하려면 엑셀 "별칭" 시트에도 반영해야 함 — 모달 안내 참고). */
+function getLocalAliases(){
+  try{
+    const raw=localStorage.getItem("guildwar_local_aliases");
+    return raw?JSON.parse(raw):[];
+  }catch(e){return [];}
+}
+function saveLocalAliases(list){
+  try{localStorage.setItem("guildwar_local_aliases",JSON.stringify(list));}catch(e){}
+}
+function buildAliasMap(wb){
+  const JA=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null});
+  const sheet=wb.Sheets["별칭"];
+  const raw=new Map(); // 과거닉 → 현재닉 (1단계 매핑)
+  if(sheet){
+    JA(sheet).forEach((row,i)=>{
+      if(i===0)return; // 헤더 행 스킵
+      const from=row.A, to=row.B;
+      if(from==null||to==null)return;
+      const f=String(from).trim(), t=String(to).trim();
+      if(f&&t&&f!==t)raw.set(f,t);
+    });
+  }
+  // 로컬(이 브라우저) 별칭을 합침 — 동일 from이 있으면 로컬 값으로 덮어씀(미리보기 우선)
+  getLocalAliases().forEach(({from,to})=>{
+    if(from&&to&&from!==to)raw.set(from,to);
+  });
+  // 체인 풀기: a→b→c 형태가 있으면 a,b 모두 최종 c로 매핑 (최대 10단계, 순환 방지)
+  const resolve=name=>{
+    let cur=name, hops=0, seen=new Set();
+    while(raw.has(cur)&&!seen.has(cur)&&hops<10){
+      seen.add(cur); cur=raw.get(cur); hops++;
+    }
+    return cur;
+  };
+  const aliasMap=new Map();
+  raw.forEach((_,from)=>aliasMap.set(from,resolve(from)));
+  return aliasMap;
+}
+function applyAlias(name,aliasMap){
+  return aliasMap&&aliasMap.has(name)?aliasMap.get(name):name;
+}
+
 /* ── 엑셀 파싱 ── */
 function parseWorkbook(wb){
   /* header:1 → 첫 행을 컬럼명으로 사용하는 일반 json 변환 */
@@ -537,6 +613,7 @@ function parseWorkbook(wb){
   const bydate={};
   const stages=[];
   const guildRows=[]; // {date, name} — 길드명 마커 행 ("guild" 마커)
+  const aliasMap=buildAliasMap(wb); // 과거닉네임 → 현재닉네임
 
   // 1) 기준표 — 1행이 헤더(하한점수/단계/점수범위), 2행~가 데이터
   const kb=wb.Sheets["기준표"];
@@ -568,13 +645,25 @@ function parseWorkbook(wb){
       const pl=row.C, sc=row.D, st=row.E, wr=row.F;
       if(ds&&pl&&typeof sc==="number"){
         if(!bydate[ds])bydate[ds]=[];
+        const player=applyAlias(String(pl).trim(),aliasMap); // 별칭 → 현재닉네임으로 즉시 통합
         bydate[ds].push({
-          player:String(pl).trim(),score:sc,
+          player,score:sc,
           stage:st&&String(st).includes("단계")?String(st).trim():stageFromScore(sc,stages),
           winResult:(typeof wr==="string"&&(wr.trim()==="승"||wr.trim()==="패"))?wr.trim():null
         });
       }
     });
+  });
+
+  // 2-1) 같은 날짜에 닉네임 통합으로 같은 사람이 중복 등록된 경우(예: 닉네임 변경 당일에
+  //      옛닉/새닉 기록이 둘 다 있는 경우) 더 높은 점수 기록 하나만 남긴다.
+  Object.keys(bydate).forEach(ds=>{
+    const seen=new Map();
+    bydate[ds].forEach(p=>{
+      const ex=seen.get(p.player);
+      if(!ex||p.score>ex.score)seen.set(p.player,p);
+    });
+    bydate[ds]=Array.from(seen.values());
   });
 
   // 3) 정렬 & rank 부여 & {players,summary,weekday} 객체로 변환
@@ -594,7 +683,7 @@ function parseWorkbook(wb){
   // 길드명 마커들을 날짜순으로 정렬해서 모두 반환 (주마다 바뀌므로 하나만 쓰지 않음)
   guildRows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
-  return {bydate:bydateFinal,stages,totalPlayers:total,guildRows};
+  return {bydate:bydateFinal,stages,totalPlayers:total,guildRows,aliasCount:aliasMap.size};
 }
 
 /* ── 렌더 ── */
@@ -957,6 +1046,18 @@ document.getElementById("badgeClr").onclick=()=>{
 
 /* ── 깃헙 엑셀 자동 로드 ── */
 const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%EA%B8%B8%EB%93%9C%EC%A0%84_%EC%97%85%EB%A1%9C%EB%93%9C_%ED%8C%8C%EC%9D%BC.xlsx";
+let LAST_WB=null; // 가장 최근에 로드한 workbook (별칭 추가/삭제 후 재파싱용)
+function reparseAndRender(){
+  if(!LAST_WB)return;
+  const parsed=parseWorkbook(LAST_WB);
+  BYDATE=parsed.bydate;
+  STAGES=parsed.stages;
+  GUILD_ROWS=parsed.guildRows||[];
+  const dates=Object.keys(BYDATE).sort();
+  if(!curDate||!BYDATE[curDate])curDate=dates[dates.length-1]||null;
+  updateGuildBadge(curDate);
+  weekAvgMode?renderWeekAvg(getWeekStart(curDate||getToday())):render();
+}
 (async function autoLoad(){
   try{
     toast("📡 최신 데이터 불러오는 중...");
@@ -964,6 +1065,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     if(!res.ok)throw new Error("HTTP "+res.status);
     const buf=await res.arrayBuffer();
     const wb=XLSX.read(new Uint8Array(buf),{type:"array",cellDates:false});
+    LAST_WB=wb;
     const parsed=parseWorkbook(wb);
     if(parsed.totalPlayers===0){toast("엑셀에 플레이어 데이터가 없어요.","err");return;}
     BYDATE=parsed.bydate;
@@ -979,7 +1081,7 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     setTxt("srcLabel","자동 업데이트");
     setTxt("dateVal",new Date().toLocaleDateString("ko-KR"));
     render();
-    toast("✅ 최신 데이터 반영 완료!");
+    toast(parsed.aliasCount?`✅ 최신 데이터 반영 완료! (별칭 ${parsed.aliasCount}건 적용)`:"✅ 최신 데이터 반영 완료!");
   }catch(e){
     console.warn("깃헙 자동 로드 실패:",e);
     /* localStorage 복원 시도 */
@@ -1001,6 +1103,71 @@ const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%
     toast("⚠️ 자동 로드 실패","err");
     render();
   }
+})();
+
+/* ── 닉네임 별칭 관리 모달 ── */
+(function(){
+  const modal=document.getElementById("aliasModal");
+  const fromInput=document.getElementById("aliasFrom");
+  const toInput=document.getElementById("aliasTo");
+  const listEl=document.getElementById("aliasList");
+
+  function renderAliasList(){
+    const list=getLocalAliases();
+    if(!list.length){
+      listEl.innerHTML=`<div style="padding:18px;text-align:center;color:var(--dim);font-size:12.5px">아직 등록된 별칭이 없어요.</div>`;
+      return;
+    }
+    listEl.innerHTML=list.map((a,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)">
+        <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.from)} <span style="color:var(--dim)">→</span> <b>${esc(a.to)}</b></div>
+        <button data-i="${i}" class="aliasDelBtn" style="background:transparent;border:1px solid var(--line2);color:var(--muted);font-size:11px;font-weight:700;border-radius:7px;padding:5px 9px;cursor:pointer">삭제</button>
+      </div>`).join("");
+    listEl.querySelectorAll(".aliasDelBtn").forEach(btn=>{
+      btn.onclick=()=>{
+        const i=+btn.dataset.i;
+        const list2=getLocalAliases();
+        list2.splice(i,1);
+        saveLocalAliases(list2);
+        renderAliasList();
+        reparseAndRender();
+        toast("별칭을 삭제했어요");
+      };
+    });
+  }
+
+  document.getElementById("aliasBtn").onclick=()=>{
+    renderAliasList();
+    modal.classList.add("show");
+  };
+  document.getElementById("aliasClose").onclick=()=>modal.classList.remove("show");
+  modal.onclick=e=>{if(e.target===modal)modal.classList.remove("show");};
+
+  document.getElementById("aliasAddBtn").onclick=()=>{
+    const from=fromInput.value.trim(), to=toInput.value.trim();
+    if(!from||!to){toast("과거 닉네임과 현재 닉네임을 모두 입력해 주세요.","err");return;}
+    if(from===to){toast("두 닉네임이 같아요.","err");return;}
+    const list=getLocalAliases();
+    const exists=list.find(a=>a.from===from);
+    if(exists)exists.to=to; else list.push({from,to});
+    saveLocalAliases(list);
+    fromInput.value=""; toInput.value="";
+    renderAliasList();
+    reparseAndRender();
+    toast(`✅ "${from}" → "${to}" 별칭이 적용됐어요 (브라우저 미리보기)`);
+  };
+
+  document.getElementById("aliasCopyBtn").onclick=async()=>{
+    const list=getLocalAliases();
+    if(!list.length){toast("복사할 별칭이 없어요.","err");return;}
+    const text="과거닉네임\t현재닉네임\n"+list.map(a=>`${a.from}\t${a.to}`).join("\n");
+    try{
+      await navigator.clipboard.writeText(text);
+      toast("📋 복사됐어요! 엑셀 \"별칭\" 시트에 붙여넣어 주세요.");
+    }catch(e){
+      toast("복사에 실패했어요. 브라우저 권한을 확인해 주세요.","err");
+    }
+  };
 })();
 
 /* ── 공지 작성 / 게임 미리보기 ──
