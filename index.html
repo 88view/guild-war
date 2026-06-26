@@ -387,12 +387,26 @@
       <h3>📊 전일 비교</h3>
       <button class="cal-x" id="compareClose">×</button>
     </div>
+
+    <!-- 날짜 선택 행 -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
+        <span style="font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">이전 날짜</span>
+        <select id="comparePrevSel" style="flex:1;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;font-weight:700;border-radius:9px;padding:7px 10px;outline:none;cursor:pointer"></select>
+      </div>
+      <span style="color:var(--dim);font-weight:800;font-size:16px">→</span>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
+        <span style="font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap">비교 날짜</span>
+        <select id="compareCurSel" style="flex:1;background:var(--bg2);border:1px solid var(--line2);color:var(--gold);font-family:inherit;font-size:13px;font-weight:700;border-radius:9px;padding:7px 10px;outline:none;cursor:pointer"></select>
+      </div>
+    </div>
+
     <div id="compareRange" style="font-size:12.5px;color:var(--dim);margin-bottom:14px"></div>
 
     <div style="font-size:13px;font-weight:800;color:var(--gold);letter-spacing:.04em;margin-bottom:8px">⬆ 6단계 이하 포인트/단계 변동</div>
     <div id="compareUpList" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px"></div>
 
-    <div style="font-size:13px;font-weight:800;color:var(--s9);letter-spacing:.04em;margin-bottom:8px">🚫 어제 참가 · 오늘 불참</div>
+    <div style="font-size:13px;font-weight:800;color:var(--s9);letter-spacing:.04em;margin-bottom:8px">🚫 이전 날짜 참가 · 비교 날짜 불참</div>
     <div id="compareMissingList" style="border:1px solid var(--line);border-radius:10px;overflow:hidden"></div>
   </div>
 </div>
@@ -1087,10 +1101,29 @@ function stageChangeBadge(curStage,prevStage){
 }
 function openCompare(){
   if(!curDate||!BYDATE[curDate]){toast("먼저 날짜를 선택해 주세요.","err");return;}
-  const prevDate=getPrevDataDate(curDate);
-  if(!prevDate){toast("비교할 이전 기록이 없어요.","err");return;}
-  renderCompare(curDate,prevDate);
+  const dates=Object.keys(BYDATE).sort();
+  if(dates.length<2){toast("비교할 이전 기록이 없어요.","err");return;}
+
+  // 드롭다운 옵션 채우기
+  const prevSel=document.getElementById("comparePrevSel");
+  const curSel=document.getElementById("compareCurSel");
+  const fmtOpt=ds=>{const d=BYDATE[ds];return `${fmtDateK(ds)} (${d.weekday.replace("요일","")})`;};
+  prevSel.innerHTML=dates.map(ds=>`<option value="${ds}">${fmtOpt(ds)}</option>`).join("");
+  curSel.innerHTML=dates.map(ds=>`<option value="${ds}">${fmtOpt(ds)}</option>`).join("");
+
+  // 기본값: curSel = curDate, prevSel = 직전 날짜
+  const prevDate=getPrevDataDate(curDate)||dates[0];
+  curSel.value=curDate;
+  prevSel.value=prevDate;
+
+  renderCompare(curSel.value, prevSel.value);
   document.getElementById("compareModal").classList.add("show");
+}
+function onCompareSelChange(){
+  const prevSel=document.getElementById("comparePrevSel");
+  const curSel=document.getElementById("compareCurSel");
+  if(prevSel.value===curSel.value){toast("이전 날짜와 비교 날짜가 같아요.","err");return;}
+  renderCompare(curSel.value, prevSel.value);
 }
 function closeCompare(){document.getElementById("compareModal").classList.remove("show");}
 function renderCompare(curDS,prevDS){
@@ -1154,6 +1187,8 @@ function renderCompare(curDS,prevDS){
 document.getElementById("compareBtn").onclick=openCompare;
 document.getElementById("compareClose").onclick=closeCompare;
 document.getElementById("compareModal").onclick=e=>{if(e.target.id==="compareModal")closeCompare();};
+document.getElementById("comparePrevSel").onchange=onCompareSelChange;
+document.getElementById("compareCurSel").onchange=onCompareSelChange;
 
 /* ── 깃헙 엑셀 자동 로드 ── */
 const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war/main/%EA%B8%B8%EB%93%9C%EC%A0%84_%EC%97%85%EB%A1%9C%EB%93%9C_%ED%8C%8C%EC%9D%BC.xlsx";
