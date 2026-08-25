@@ -1,0 +1,4171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>게임가이드 · [ 빌런 ] 착한사람들</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- 길드원 모두가 같은 글을 보는 공유 게시판을 위한 Firebase(무료) 연동 -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+<style>
+  /* ── 전역 리셋 (게시판 + 길드전 공용) ── */
+  *{box-sizing:border-box;margin:0;padding:0;
+    font-family:'Pretendard Variable','Pretendard',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+  html,body{min-height:100vh}
+
+  /* ══════════════════════════════════════════════
+     게시판(메인) 스타일 — #boardPage 안에서만 적용
+     ══════════════════════════════════════════════ */
+  #boardPage{
+    --bg:#f6f8fd; --bg2:#ffffff;
+    --panel:#ffffff; --panel2:#ffffff; --raised:#eef1fb;
+    --line:rgba(30,40,80,.08); --line2:rgba(30,40,80,.14);
+    --tx:#1c2440; --muted:#5f6b92; --dim:#9aa2c2;
+    --brand:#4a6cf7; --brand2:#0fb8a6;
+    --gold:#d99a12;
+    --danger:#e0395f;
+    --radius:16px;
+  }
+  
+  #boardPage{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(108,140,255,.10), transparent 60%),
+      radial-gradient(900px 520px at -5% 0%, rgba(70,224,196,.08), transparent 55%),
+      var(--bg);
+    color:var(--tx); min-height:100vh; -webkit-font-smoothing:antialiased;
+    padding:28px clamp(14px,4vw,48px) 56px;
+  }
+  #boardPage button,#boardPage input,#boardPage textarea{font-family:inherit}
+  #boardPage button:focus-visible,#boardPage input:focus-visible,#boardPage textarea:focus-visible{outline:2px solid var(--brand2);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){#boardPage *{transition:none!important;animation:none!important}}
+  #boardPage .wrap{max-width:1180px;margin:0 auto}
+
+  #boardPage /* ── header ── */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+  #boardPage .eyebrow{font-size:12px;letter-spacing:.32em;color:var(--brand);font-weight:700;text-transform:uppercase}
+  #boardPage h1{font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.02em;margin-top:6px;line-height:1.15;color:var(--tx)}
+  #boardPage h1 .guildname{color:var(--brand)}
+  #boardPage .sub{color:var(--muted);font-size:13.5px;margin-top:9px;line-height:1.6}
+  #boardPage .sharepill{display:inline-flex;align-items:center;gap:4px;background:rgba(70,224,196,.14);border:1px solid rgba(70,224,196,.35);
+    color:var(--brand2);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+
+  #boardPage /* ── buttons ── */
+  .primarybtn{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--brand),var(--brand2));
+    color:#06121b;font-size:13.5px;font-weight:800;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;
+    box-shadow:0 8px 20px -8px rgba(70,224,196,.55);transition:.15s;white-space:nowrap}
+  #boardPage .primarybtn:hover{transform:translateY(-1px)}
+  #boardPage .ghostbtn{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);color:var(--tx);font-size:13px;font-weight:700;
+    border:1px solid var(--line2);border-radius:10px;padding:9px 13px;cursor:pointer;transition:.15s}
+  #boardPage .ghostbtn:hover{border-color:var(--brand2);background:var(--raised)}
+  #boardPage .dangerbtn{display:inline-flex;align-items:center;gap:6px;background:transparent;color:var(--danger);font-size:12.5px;font-weight:700;
+    border:1px solid rgba(255,94,126,.4);border-radius:10px;padding:8px 12px;cursor:pointer;transition:.15s;white-space:nowrap}
+  #boardPage .dangerbtn:hover{background:rgba(255,94,126,.12)}
+
+  #boardPage /* ── toolbar / search ── */
+  .toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+  #boardPage .search{position:relative;width:230px}
+  #boardPage .search input{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-size:13px;
+    border-radius:9px;padding:9px 12px 9px 32px;outline:none}
+  #boardPage .search input:focus{border-color:var(--brand2)}
+  #boardPage .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.5}
+
+  #boardPage /* ── 게시판(목록) ── */
+  .board-wrap{display:block}
+  #boardPage .board{border:1px solid var(--line2);border-radius:var(--radius);overflow:hidden;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    box-shadow:0 1px 0 rgba(20,30,70,.04) inset, 0 10px 26px -20px rgba(0,0,0,.8)}
+  #boardPage .board-head{display:flex;align-items:center;padding:12px 22px;
+    font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--dim);
+    border-bottom:1px solid var(--line);background:rgba(20,30,70,.025)}
+  #boardPage .board-head .h-title{flex:1}
+  #boardPage .board-head .h-meta{white-space:nowrap;width:90px;text-align:right}
+  #boardPage .board-head .h-meta:last-child{margin-left:0;width:108px}
+
+  #boardPage .post-row{position:relative;display:flex;align-items:center;gap:16px;padding:17px 22px;cursor:pointer;
+    border-bottom:1px solid var(--line);transition:background .14s,transform .14s}
+  #boardPage .post-row:hover{background:color-mix(in srgb,var(--bar,var(--brand2)) 8%, transparent);transform:translateX(2px)}
+  #boardPage .post-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--bar,var(--brand2));opacity:0;transition:opacity .14s}
+  #boardPage .post-row:hover::before{opacity:1}
+  #boardPage .post-ico{width:44px;height:44px;border-radius:12px;flex-shrink:0;
+    background:color-mix(in srgb,var(--bar,var(--brand2)) 14%, var(--raised));
+    border:1px solid color-mix(in srgb,var(--bar,var(--brand2)) 32%, transparent);
+    display:flex;align-items:center;justify-content:center;font-size:21px}
+  #boardPage .post-main{flex:1;min-width:0}
+  #boardPage .post-title{font-size:16px;font-weight:700;letter-spacing:-.01em;line-height:1.35;
+    display:flex;align-items:center;gap:8px;word-break:keep-all}
+  #boardPage .post-cnt{font-size:11px;font-weight:700;flex-shrink:0;
+    color:color-mix(in srgb,var(--bar,var(--brand2)) 75%, var(--tx));
+    background:color-mix(in srgb,var(--bar,var(--brand2)) 16%, transparent);
+    padding:1px 7px;border-radius:999px}
+  #boardPage .post-desc{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #boardPage .post-meta{font-size:12px;color:var(--dim);white-space:nowrap;flex-shrink:0;text-align:right;width:90px}
+  #boardPage .post-write{display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:15px;cursor:pointer;color:var(--dim);font-weight:700;font-size:13.5px;
+    transition:.14s}
+  #boardPage .post-write:hover{color:var(--brand2);background:rgba(20,30,70,.035)}
+  @media (max-width:560px){
+    #boardPage .board-head .h-meta,#boardPage .post-meta{display:none}
+    #boardPage .post-desc{white-space:normal}
+  }
+
+  #boardPage /* ── 다중 선택 삭제 ── */
+  .select-bar{display:none;align-items:center;gap:10px;flex-wrap:wrap;
+    background:rgba(224,57,95,.07);border:1px solid rgba(224,57,95,.25);
+    border-radius:12px;padding:10px 16px;margin-bottom:14px;animation:fadeIn .18s}
+  #boardPage .select-bar.show{display:flex}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  #boardPage .select-bar .sel-info{flex:1;font-size:13px;font-weight:700;color:var(--tx)}
+  #boardPage .select-bar .sel-info span{color:var(--danger)}
+  #boardPage .selbtn{display:inline-flex;align-items:center;gap:5px;background:var(--danger);color:#fff;
+    font-size:13px;font-weight:800;border:0;border-radius:9px;padding:8px 14px;cursor:pointer;
+    box-shadow:0 4px 14px -6px rgba(224,57,95,.6);transition:.14s;white-space:nowrap}
+  #boardPage .selbtn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  #boardPage .selbtn:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
+  #boardPage .selbtn.cancel{background:var(--raised);color:var(--muted);border:1px solid var(--line2);box-shadow:none}
+  #boardPage .selbtn.cancel:hover{border-color:var(--tx);color:var(--tx)}
+  #boardPage .selbtn.selall{background:var(--raised);color:var(--tx);border:1px solid var(--line2);box-shadow:none}
+  #boardPage .selbtn.selall:hover{border-color:var(--brand2);color:var(--brand2)}
+
+  #boardPage .post-row.selectable{padding-left:14px;cursor:default}
+  #boardPage .post-row.selectable:hover{background:color-mix(in srgb,var(--bar,var(--brand2)) 5%,transparent);transform:none}
+  #boardPage .post-row.selectable.selected{background:rgba(224,57,95,.07);border-left:3px solid var(--danger)}
+  #boardPage .post-row.selectable .post-chk{
+    width:20px;height:20px;border-radius:6px;border:2px solid var(--line2);
+    background:var(--bg2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;transition:.13s;font-size:13px}
+  #boardPage .post-row.selectable.selected .post-chk{background:var(--danger);border-color:var(--danger);color:#fff}
+  #boardPage .post-row.selectable .post-ico,#boardPage .post-row.selectable .post-main,#boardPage .post-row.selectable .post-meta,
+  #boardPage .post-row.selectable .post-dates{cursor:pointer}
+
+  #boardPage /* ── empty state ── */
+  .empty-state{padding:60px 20px;text-align:center;color:var(--dim);grid-column:1/-1}
+  #boardPage .empty-state .ico{font-size:38px;opacity:.55;margin-bottom:12px}
+  #boardPage .empty-state p{font-size:13.5px;line-height:1.6}
+
+  #boardPage /* ── modal overlay (새 가이드) ── */
+  .modal-overlay{position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:60;padding:18px}
+  #boardPage .modal-overlay.show{display:flex}
+  #boardPage .modal-card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+    border-radius:18px;padding:22px;width:min(420px,100%);box-shadow:0 30px 80px -20px rgba(0,0,0,.8)}
+  #boardPage .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  #boardPage .modal-head h3{font-size:15px;font-weight:800}
+  #boardPage .modal-x{background:transparent;border:0;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:4px}
+  #boardPage .modal-x:hover{color:var(--tx)}
+  #boardPage .emoji-row{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-bottom:14px}
+  #boardPage .emoji-opt{background:var(--raised);border:1px solid transparent;font-size:18px;padding:7px 0;border-radius:9px;cursor:pointer;transition:.12s}
+  #boardPage .emoji-opt:hover{background:rgba(20,30,70,.08)}
+  #boardPage .emoji-opt.sel{border-color:var(--brand2);background:rgba(70,224,196,.16)}
+  #boardPage .modal-card input[type=text],#boardPage .modal-card input[type=password],#boardPage .modal-card input:not([type]),#boardPage .modal-card textarea{
+    width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-size:13.5px;
+    border-radius:9px;padding:10px 12px;outline:none;margin-bottom:10px;resize:vertical}
+  #boardPage .modal-card input:focus,#boardPage .modal-card textarea:focus{border-color:var(--brand2)}
+
+  #boardPage /* ── lightbox ── */
+  .lightbox-inner{max-width:92vw;max-height:92vh;position:relative}
+  #boardPage .lightbox-inner img{max-width:92vw;max-height:85vh;border-radius:12px;display:block;box-shadow:0 30px 70px -20px rgba(0,0,0,.7)}
+  #boardPage .lightbox-inner .modal-x{position:absolute;top:-38px;right:-6px;color:#fff}
+  #boardPage .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(6,10,20,.55);
+    border:1px solid rgba(255,255,255,.18);color:#fff;width:42px;height:42px;border-radius:50%;
+    font-size:24px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+  #boardPage .lb-nav:hover{background:rgba(70,224,196,.3);border-color:var(--brand2)}
+  #boardPage .lb-prev{left:-14px}
+  #boardPage .lb-next{right:-14px}
+  #boardPage .lb-nav.hide{display:none}
+  #boardPage .lb-counter{position:absolute;bottom:-32px;left:50%;transform:translateX(-50%);
+    color:#fff;font-size:12.5px;font-weight:700;background:rgba(6,10,20,.55);padding:4px 12px;border-radius:999px}
+  @media(max-width:640px){#boardPage .lb-prev{left:2px}#boardPage .lb-next{right:2px}}
+
+  #boardPage /* ── detail view ── */
+  #detailView{display:flex;flex-direction:column}
+  #boardPage .detail-top{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:8px 0 14px;margin-bottom:8px;border-bottom:1px solid var(--line);background:var(--bg);z-index:5}
+  #boardPage .save-indicator{font-size:12px;color:var(--dim);font-weight:600}
+  #boardPage .save-indicator.saving{color:var(--gold)}
+  #boardPage .save-indicator.saved{color:var(--brand2)}
+  #boardPage .save-indicator.failed{color:var(--danger)}
+
+  #boardPage /* ── 편집 락 배지 ── */
+  .lock-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(244,196,81,.14);
+    border:1px solid rgba(244,196,81,.4);color:var(--gold);font-size:11.5px;font-weight:700;
+    padding:4px 10px;border-radius:999px;white-space:nowrap}
+  #boardPage .lock-badge.in-row{margin-left:8px;flex-shrink:0}
+  #boardPage .post-row.locked{opacity:.92}
+  #boardPage #viewToggleBtn.is-locked{opacity:.5;cursor:not-allowed}
+  #boardPage #viewToggleBtn.is-locked:hover{border-color:var(--line2);background:var(--panel2)}
+
+  #boardPage .detail-head{display:flex;gap:14px;align-items:flex-start;margin:0 auto 6px;position:relative;max-width:860px}
+  #boardPage .detail-icon{width:50px;height:50px;border-radius:14px;background:var(--raised);border:1px solid var(--line2);
+    font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.15s}
+  #boardPage .detail-icon:hover{border-color:var(--brand2)}
+  #boardPage .detail-headtext{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+  #boardPage .detail-title-input{font-size:19px;font-weight:800;background:transparent;border:0;border-bottom:1px solid transparent;
+    color:var(--tx);padding:4px 2px;outline:none;width:100%}
+  #boardPage .detail-title-input:focus{border-bottom-color:var(--brand2)}
+  #boardPage .detail-desc-input{font-size:12.5px;background:transparent;border:0;color:var(--muted);padding:2px;outline:none;width:100%}
+  #boardPage .detail-desc-input:focus{color:var(--tx)}
+  #boardPage .emoji-pop{position:absolute;top:58px;left:0;background:var(--raised);border:1px solid var(--line2);border-radius:12px;
+    padding:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;box-shadow:0 14px 30px -10px rgba(0,0,0,.6);z-index:10}
+  #boardPage .emoji-pop[hidden]{display:none}
+
+  #boardPage .detail-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:860px;
+    position:sticky;top:var(--detail-top-h,52px);z-index:4;background:var(--bg);
+    margin:14px auto 0;padding:8px 0 18px;border-bottom:1px solid var(--line)}
+  #boardPage .tbtn{display:inline-flex;align-items:center;gap:6px;background:var(--raised);border:1px solid var(--line2);color:var(--tx);
+    font-size:13px;font-weight:700;border-radius:9px;padding:8px 13px;cursor:pointer;transition:.15s}
+  #boardPage .tbtn:hover{border-color:var(--brand2);background:var(--panel2)}
+  #boardPage .cap-hint{margin-left:auto;font-size:11.5px;color:var(--dim)}
+  #boardPage .cap-hint.warn{color:var(--danger);font-weight:700}
+  #boardPage .paste-hint{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--dim);font-weight:600}
+  #boardPage .paste-hint kbd{background:var(--raised);border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;
+    padding:2px 6px;font-size:11px;font-weight:700;color:var(--muted);font-family:inherit;line-height:1}
+
+  #boardPage /* 붙여넣기 드롭존 안내 (편집 화면 위로 끌어오거나 붙여넣을 때) */
+  .paste-flash{position:fixed;inset:0;border:3px dashed var(--brand2);border-radius:18px;margin:10px;
+    background:rgba(70,224,196,.06);display:none;align-items:center;justify-content:center;z-index:70;pointer-events:none}
+  #boardPage .paste-flash.show{display:flex}
+  #boardPage .paste-flash span{background:var(--raised);border:1px solid var(--brand2);color:var(--brand2);font-weight:800;
+    font-size:15px;padding:12px 22px;border-radius:12px;box-shadow:0 20px 50px -16px rgba(0,0,0,.7)}
+
+  #boardPage .blocks-wrap{display:flex;flex-direction:column;gap:14px;padding-bottom:30px;max-width:860px;margin:0 auto}
+  #boardPage .blk{position:relative;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:16px}
+  #boardPage .blk-ctrl{position:absolute;top:8px;right:8px;display:flex;gap:5px;opacity:0;transition:.15s}
+  #boardPage .blk:hover .blk-ctrl,#boardPage .blk:focus-within .blk-ctrl{opacity:1}
+  #boardPage .blk-btn{width:26px;height:26px;border-radius:7px;background:var(--raised);border:1px solid var(--line2);color:var(--tx);
+    font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #boardPage .blk-btn:hover{border-color:var(--brand2)}
+  #boardPage .blk-btn.danger{color:var(--danger);border-color:rgba(255,94,126,.4)}
+  #boardPage .blk-btn.danger:hover{background:rgba(255,94,126,.12)}
+  #boardPage .blk-text{width:100%;min-height:120px;background:transparent;border:0;resize:none;overflow:hidden;color:var(--tx);
+    font-size:14.5px;line-height:1.7;outline:none;white-space:pre-wrap}
+  #boardPage .blk-text::placeholder{color:var(--dim)}
+  #boardPage /* 이미지: 기본은 '크게(lg)', #boardPage 사이즈 클래스로 조절. 화면 꽉 채우지 않음 */
+  .blk-img{width:auto;max-width:100%;height:auto;border-radius:10px;display:block;cursor:zoom-in;margin:0 auto 9px}
+  #boardPage .blk-img.sz-sm{max-width:min(100%,300px)}
+  #boardPage .blk-img.sz-md{max-width:min(100%,460px)}
+  #boardPage .blk-img.sz-lg{max-width:min(100%,640px)}
+  #boardPage .blk-img.sz-full{max-width:100%}
+  #boardPage /* 사이즈 조절 바 */
+  .img-sizebar{display:flex;align-items:center;gap:4px;justify-content:center;margin:0 0 9px}
+  #boardPage .img-sizebar .szlabel{font-size:11px;color:var(--dim);font-weight:600;margin-right:3px}
+  #boardPage .img-sizebar button{background:var(--raised);border:1px solid var(--line2);color:var(--muted);font-size:11.5px;
+    font-weight:700;border-radius:7px;padding:4px 9px;cursor:pointer;transition:.12s;min-width:30px}
+  #boardPage .img-sizebar button:hover{border-color:var(--brand2);color:var(--tx)}
+  #boardPage .img-sizebar button.on{background:rgba(70,224,196,.16);border-color:var(--brand2);color:var(--brand2)}
+  #boardPage .blk-caption{width:100%;background:transparent;border:0;border-top:1px dashed var(--line2);color:var(--muted);
+    font-size:12.5px;padding-top:9px;outline:none;text-align:center}
+  #boardPage .blk-caption:focus{color:var(--tx)}
+  #boardPage .blk-caption::placeholder{color:var(--dim)}
+
+  #boardPage /* ── 이미지 그리드 (편집 모드) ── */
+  .img-group-blk{position:relative;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:12px}
+  #boardPage .img-group-blk .blk-ctrl{position:absolute;top:8px;right:8px;display:flex;gap:5px;opacity:0;transition:.15s}
+  #boardPage .img-group-blk:hover .blk-ctrl,#boardPage .img-group-blk:focus-within .blk-ctrl{opacity:1}
+  #boardPage .img-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+  #boardPage .img-grid-item{position:relative;aspect-ratio:1;border-radius:7px;overflow:hidden;cursor:zoom-in;background:var(--raised)}
+  #boardPage .img-grid-item img{width:100%;height:100%;object-fit:cover;display:block;transition:.15s}
+  #boardPage .img-grid-item:hover img{opacity:.82}
+  #boardPage .img-grid-item .del-img{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:5px;
+    background:rgba(10,15,28,.75);border:1px solid rgba(255,94,126,.5);color:var(--danger);
+    font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:.12s;line-height:1}
+  #boardPage .img-grid-item:hover .del-img{opacity:1}
+  #boardPage .img-grid-add{aspect-ratio:1;border-radius:7px;border:1px dashed var(--line2);background:transparent;
+    color:var(--dim);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.14s}
+  #boardPage .img-grid-add:hover{border-color:var(--brand2);color:var(--brand2);background:rgba(70,224,196,.06)}
+  #boardPage .img-group-caption{width:100%;background:transparent;border:0;border-top:1px dashed var(--line2);
+    color:var(--muted);font-size:12.5px;padding:8px 4px 0;margin-top:10px;outline:none;text-align:center}
+  #boardPage .img-group-caption:focus{color:var(--tx)}
+  #boardPage .img-group-caption::placeholder{color:var(--dim)}
+
+  #boardPage /* ── 게시글(보기) 모드 ── */
+  .read-text{font-size:15px;line-height:1.85;color:var(--tx);white-space:pre-wrap;word-break:break-word}
+  #boardPage .auto-link{color:var(--brand2);text-decoration:underline;text-decoration-color:rgba(70,224,196,.4);word-break:break-all}
+  #boardPage .auto-link:hover{color:var(--brand);text-decoration-color:var(--brand)}
+  #boardPage .read-fig{margin:0;display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
+  #boardPage .read-cap{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5}
+  #boardPage /* 여러 장이어도 가로로 욱여넣지 않고 세로로 쌓아 원본 크기에 가깝게 크게 보여줌 */
+  .read-img-grid{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
+  #boardPage .read-img-grid-item{position:relative;border-radius:12px;overflow:hidden;cursor:zoom-in;background:var(--raised);
+    border:1px solid var(--line2);box-shadow:0 8px 20px -14px rgba(0,0,0,.7);transition:.15s;
+    width:100%;max-width:760px}
+  #boardPage .read-img-grid-item:hover{border-color:var(--brand2)}
+  #boardPage .read-img-grid-item img{display:block;width:100%;height:auto;max-width:100%;
+    object-fit:contain;transition:.15s}
+  #boardPage .read-img-grid.single .read-img-grid-item{border:none;background:transparent;box-shadow:none}
+  #boardPage .read-img-grid-item .zoom-hint{position:absolute;right:8px;bottom:8px;background:rgba(6,10,20,.6);
+    color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;
+    display:flex;align-items:center;gap:4px;opacity:0;transition:.15s;pointer-events:none}
+  #boardPage .read-img-grid-item:hover .zoom-hint{opacity:1}
+  #boardPage .read-img-grid-item img:hover{opacity:.96}
+  #boardPage #detailView.reading .detail-toolbar,
+  #boardPage #detailView.reading .blk-ctrl,
+  #boardPage #detailView.reading #blocksEmpty{display:none!important}
+  #boardPage #detailView.reading .detail-icon{cursor:default;pointer-events:none}
+  #boardPage #detailView.reading .save-indicator{display:none}
+  #boardPage #detailView.reading .detail-title-input{font-size:26px;cursor:default}
+  #boardPage #detailView.reading .detail-desc-input{font-size:13.5px;cursor:default}
+  #boardPage #detailView.reading #dAuthor{font-size:12.5px}
+  #boardPage #detailView.reading .blocks-wrap{gap:26px;max-width:760px;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line2);border-radius:20px;
+    padding:34px clamp(18px,4vw,46px) 40px;
+    box-shadow:0 1px 0 rgba(20,30,70,.04) inset, 0 16px 40px -28px rgba(0,0,0,.75)}
+  #boardPage #detailView.reading .detail-head{max-width:760px;margin-bottom:18px}
+
+  #boardPage /* ── 게시글 내 검색 ── */
+  .post-search-bar{display:none;align-items:center;gap:8px;max-width:760px;margin:0 auto 16px;
+    background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:9px 12px}
+  #boardPage #detailView.reading .post-search-bar{display:flex}
+  #boardPage .post-search-bar .ps-icon{opacity:.55;flex-shrink:0;display:flex}
+  #boardPage .post-search-bar input{flex:1;background:transparent;border:0;color:var(--tx);font-size:13.5px;outline:none;min-width:0}
+  #boardPage .post-search-bar input::placeholder{color:var(--dim)}
+  #boardPage .ps-count{font-size:12px;color:var(--dim);font-weight:600;white-space:nowrap;flex-shrink:0}
+  #boardPage .ps-count.has-match{color:var(--brand2)}
+  #boardPage .ps-count.no-match{color:var(--danger)}
+  #boardPage .ps-nav{display:flex;gap:4px;flex-shrink:0}
+  #boardPage .ps-nav button{width:26px;height:26px;border-radius:7px;background:var(--raised);border:1px solid var(--line2);
+    color:var(--tx);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.12s}
+  #boardPage .ps-nav button:hover:not(:disabled){border-color:var(--brand2);color:var(--brand2)}
+  #boardPage .ps-nav button:disabled{opacity:.35;cursor:not-allowed}
+  #boardPage .ps-clear{width:24px;height:24px;border-radius:7px;background:transparent;border:0;color:var(--dim);
+    font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  #boardPage .ps-clear:hover{color:var(--tx)}
+  #boardPage mark.ps-hit{background:rgba(244,196,81,.32);color:var(--tx);border-radius:3px;padding:0 1px}
+  #boardPage mark.ps-hit.ps-active{background:var(--gold);color:#1a1406;box-shadow:0 0 0 2px rgba(244,196,81,.35)}
+
+  #boardPage /* ── 표 보기 모드 ── */
+  .read-table-wrap{width:100%;overflow-x:auto}
+  #boardPage .read-table{width:100%;border-collapse:collapse;font-size:14px}
+  #boardPage .read-table th{background:var(--raised);color:var(--brand2);font-size:12px;font-weight:700;
+    padding:8px 14px;border:1px solid var(--line2);text-align:center;letter-spacing:.04em;white-space:nowrap}
+  #boardPage .read-table td{padding:8px 14px;border:1px solid var(--line2);color:var(--tx);
+    font-size:13.5px;line-height:1.6;word-break:break-all}
+  #boardPage .read-table td:first-child{width:52px;min-width:52px;text-align:center;white-space:nowrap}
+  #boardPage .read-table tr:nth-child(even) td{background:rgba(20,30,70,.03)}
+  #boardPage .read-table tr:hover td{background:rgba(108,140,255,.08)}
+  #boardPage .edit-table-wrap{width:100%;overflow-x:auto;margin-top:6px}
+  #boardPage .edit-table input.edit-row-input:focus{background:rgba(108,140,255,.08)!important;border-radius:4px}
+  #boardPage .edit-add-row-btn{margin-top:8px;width:100%;background:var(--raised);border:1px dashed var(--line2);
+    color:var(--muted);font-size:13px;font-weight:700;border-radius:8px;padding:8px;cursor:pointer;transition:.15s}
+  #boardPage .edit-add-row-btn:hover{border-color:var(--brand2);color:var(--brand2)}
+  #boardPage .table-toggle-btn{background:transparent;
+    border:1px solid var(--line2);color:var(--muted);font-size:12px;font-weight:700;
+    border-radius:8px;padding:5px 12px;cursor:pointer;transition:.15s;margin-bottom:10px}
+  #boardPage .table-toggle-btn:hover{border-color:var(--brand2);color:var(--brand2)}
+  #boardPage .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--raised);
+    border:1px solid var(--line2);color:var(--tx);font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:12px;
+    box-shadow:0 12px 30px -8px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s;z-index:80}
+  #boardPage .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #boardPage .toast.err{border-color:var(--danger)}
+
+  #boardPage .foot{text-align:center;color:var(--dim);font-size:11.5px;margin-top:30px}
+
+  #boardPage /* ── 방문자 카운터 ── */
+  .visitor-bar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  #boardPage .visitor-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(74,108,247,.10);
+    border:1px solid rgba(74,108,247,.28);color:var(--brand);font-size:11.5px;font-weight:700;
+    padding:4px 11px;border-radius:999px;white-space:nowrap}
+  #boardPage .visitor-pill .v-num{font-size:13px;font-weight:800;color:var(--brand)}
+  #boardPage .today-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(15,184,166,.10);
+    border:1px solid rgba(15,184,166,.28);color:var(--brand2);font-size:11.5px;font-weight:700;
+    padding:4px 11px;border-radius:999px;white-space:nowrap}
+  #boardPage .today-pill .v-num{font-size:13px;font-weight:800;color:var(--brand2)}
+
+  #boardPage /* ── 날짜 메타 (목록) ── */
+  .post-dates{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:11.5px;color:var(--dim);white-space:nowrap;flex-shrink:0;width:108px}
+  #boardPage .post-dates .date-row{display:flex;align-items:center;gap:4px}
+  #boardPage .date-label{font-size:10.5px;font-weight:700;color:var(--dim);opacity:.7}
+  #boardPage .date-updated{color:var(--brand2);font-weight:700}
+  @media (max-width:560px){
+    #boardPage .post-dates{display:none}
+  }
+
+  #boardPage /* ── 날짜 메타 (상세) ── */
+  #dDateMeta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--dim);font-weight:600;margin-top:2px}
+  #boardPage #dDateMeta .dmeta-item{display:inline-flex;align-items:center;gap:4px}
+  #boardPage #dDateMeta .dmeta-label{opacity:.7;font-size:11px}
+  #boardPage #dDateMeta .dmeta-updated{color:var(--brand2)}
+
+  #boardPage /* 화면 전환: hidden 속성 대신 명시적 display 제어 */
+  #gridView.hidden-view,
+  #boardPage #detailView.hidden-view{display:none!important}
+  #boardPage #detailView{display:none}
+  #boardPage #detailView.active-view{display:flex}
+
+  @media(max-width:760px){
+    #boardPage .detail-head{flex-wrap:wrap}
+    #boardPage .toolbar-row{flex-direction:column;align-items:stretch}
+    #boardPage .search{width:100%}
+  }
+
+  #boardPage /* ── 댓글 섹션 ── */
+  .comment-section{max-width:760px;margin:32px auto 0;padding-bottom:40px}
+  #boardPage .comment-section-title{font-size:13.5px;font-weight:800;color:var(--muted);letter-spacing:.06em;
+    text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  #boardPage .comment-section-title .cmt-count-badge{
+    background:color-mix(in srgb,var(--brand2) 15%,transparent);
+    color:var(--brand2);font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;
+    border:1px solid color-mix(in srgb,var(--brand2) 30%,transparent)}
+
+  #boardPage /* 댓글 입력 폼 */
+  .cmt-form{background:var(--panel2);border:1px solid var(--line2);border-radius:14px;padding:14px 16px;margin-bottom:20px}
+  #boardPage .cmt-form-row{display:flex;gap:8px;margin-bottom:8px}
+  #boardPage .cmt-form-row input{flex:1;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);
+    font-size:13px;border-radius:8px;padding:8px 10px;outline:none}
+  #boardPage .cmt-form-row input:focus{border-color:var(--brand2)}
+  #boardPage .cmt-form textarea{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);
+    font-size:13.5px;border-radius:8px;padding:10px 12px;outline:none;resize:none;min-height:70px;
+    line-height:1.6;margin-bottom:8px}
+  #boardPage .cmt-form textarea:focus{border-color:var(--brand2)}
+  #boardPage .cmt-form-actions{display:flex;justify-content:flex-end}
+  #boardPage .cmt-submit-btn{display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(135deg,var(--brand),var(--brand2));
+    color:#06121b;font-size:13px;font-weight:800;border:0;border-radius:9px;padding:9px 18px;cursor:pointer;
+    box-shadow:0 6px 16px -8px rgba(70,224,196,.55);transition:.15s}
+  #boardPage .cmt-submit-btn:hover{transform:translateY(-1px)}
+  #boardPage .cmt-submit-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+  #boardPage /* 댓글 목록 */
+  .cmt-list{display:flex;flex-direction:column;gap:10px}
+  #boardPage .cmt-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;
+    position:relative;transition:border-color .14s}
+  #boardPage .cmt-item:hover{border-color:var(--line2)}
+  #boardPage .cmt-item.deleting{opacity:.4;pointer-events:none}
+  #boardPage .cmt-header{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  #boardPage .cmt-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
+  #boardPage .cmt-nick{font-size:13px;font-weight:700;color:var(--tx)}
+  #boardPage .cmt-time{font-size:11.5px;color:var(--dim);margin-left:auto}
+  #boardPage .cmt-body{font-size:14px;color:var(--tx);line-height:1.7;white-space:pre-wrap;word-break:break-word}
+  #boardPage .cmt-del-btn{position:absolute;top:10px;right:10px;background:transparent;border:1px solid rgba(255,94,126,.35);
+    color:var(--danger);font-size:11px;font-weight:700;border-radius:7px;padding:4px 9px;cursor:pointer;
+    opacity:0;transition:.14s}
+  #boardPage .cmt-item:hover .cmt-del-btn{opacity:1}
+  #boardPage .cmt-del-btn:hover{background:rgba(255,94,126,.12)}
+  #boardPage .cmt-empty{text-align:center;color:var(--dim);font-size:13px;padding:28px 0;opacity:.7}
+
+  /* ══════════════════════════════════════════════
+     길드전 랭킹 스타일 — #guildPage 안에서만 적용
+     ══════════════════════════════════════════════ */
+  #guildPage{
+    --bg:#0c1322; --bg2:#0f192b;
+    --panel:#15203a; --panel2:#1a2742; --raised:#1f2e4e;
+    --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
+    --tx:#eaf0fb; --muted:#8a99bd; --dim:#5b6b8e;
+    --gold:#f4c451; --gold2:#d99f28;
+    --silver:#c3d0ea; --silver2:#8fa3c8;
+    --bronze:#dc9255; --bronze2:#b06f37;
+    --mine:#46cf86;
+    --s9:#ff5e7e; --s8:#ff9f43; --s7:#ffd24d; --s6:#5fd089;
+    --s5:#37cdbf; --s4:#46a6ff; --s3:#7f9bff; --s2:#b58cff; --s1:#7787ab;
+    --radius:16px;
+  }
+  
+  #guildPage{
+    font-family:'Pretendard Variable','Pretendard',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(244,196,81,.08), transparent 60%),
+      radial-gradient(900px 500px at -5% 0%, rgba(70,166,255,.07), transparent 55%),
+      var(--bg);
+    color:var(--tx); min-height:100vh; -webkit-font-smoothing:antialiased;
+    padding:28px clamp(14px,4vw,48px) 56px;
+  }
+  #guildPage .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+  #guildPage .wrap{max-width:1240px;margin:0 auto}
+
+  #guildPage header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+  #guildPage .brand .eyebrow{font-size:12px;letter-spacing:.32em;color:var(--gold);font-weight:700;text-transform:uppercase}
+  #guildPage .brand h1{font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-.02em;margin-top:6px;line-height:1.05}
+  #guildPage .brand h1 .guild{background:linear-gradient(120deg,var(--gold),#ffe9a8 55%,var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  #guildPage .brand .sub{color:var(--muted);font-size:13.5px;margin-top:8px}
+  #guildPage .rightcol{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+  #guildPage .datebox{text-align:right}
+  #guildPage .datebox .d{font-size:13px;color:var(--dim);letter-spacing:.04em}
+  #guildPage .datebox .v{font-size:20px;font-weight:700;margin-top:2px}
+
+  #guildPage .loadbtn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));
+    color:#1a1206;font-family:inherit;font-size:13.5px;font-weight:800;border:0;border-radius:10px;
+    padding:10px 16px;cursor:pointer;box-shadow:0 8px 20px -8px rgba(244,196,81,.6);transition:.15s}
+  #guildPage .loadbtn:hover{transform:translateY(-1px)}
+  #guildPage .loadnote{font-size:11.5px;color:var(--dim);text-align:right;max-width:280px}
+  #guildPage .loadnote b{color:var(--mine)}
+
+  #guildPage .tabs{display:flex;gap:6px;padding:12px 16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #guildPage .tab{flex:1;min-width:74px;border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:15px;font-weight:700;padding:11px 6px;border-radius:9px;cursor:pointer;transition:.18s;white-space:nowrap}
+  #guildPage .tab:hover{color:var(--tx);background:rgba(255,255,255,.04)}
+  #guildPage .tab.active{color:#1a1206;background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 6px 18px -6px rgba(244,196,81,.6)}
+  #guildPage .tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mine);margin-left:6px;vertical-align:middle}
+  #guildPage .tab.empty{color:var(--dim)} #guildPage .tab.empty .dot{background:var(--dim);opacity:.5}
+
+  #guildPage .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+  #guildPage .kpi{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
+  #guildPage .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold)}
+  #guildPage .kpi.b::before{background:var(--s4)} #guildPage .kpi.c::before{background:var(--s6)} #guildPage .kpi.d::before{background:var(--s9)}
+  #guildPage .kpi .lab{font-size:12.5px;color:var(--muted);font-weight:600}
+  #guildPage .kpi .val{font-size:clamp(22px,3vw,30px);font-weight:800;margin-top:7px;letter-spacing:-.02em;line-height:1}
+  #guildPage .kpi .meta{font-size:12px;color:var(--dim);margin-top:7px}
+
+  #guildPage .grid{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
+  #guildPage .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  #guildPage .card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  #guildPage .card-h h2{font-size:15px;font-weight:800;letter-spacing:-.01em}
+  #guildPage .card-h .hint{font-size:12px;color:var(--dim)}
+
+  #guildPage .search{position:relative;width:190px}
+  #guildPage .search input{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;border-radius:9px;padding:8px 10px 8px 30px;outline:none}
+  #guildPage .search input:focus{border-color:var(--gold)}
+  #guildPage .search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:.5}
+
+  #guildPage .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:12px;padding:20px;align-items:end}
+  #guildPage .pod{border-radius:14px;padding:16px 14px;text-align:center;position:relative;border:1px solid var(--line2);background:var(--panel2);cursor:pointer;transition:.2s}
+  #guildPage .pod:hover{transform:translateY(-3px)}
+  #guildPage .pod .medal{font-size:24px;font-weight:900;width:42px;height:42px;line-height:42px;border-radius:50%;margin:0 auto 10px;color:#1a1206}
+  #guildPage .pod.g{background:linear-gradient(180deg,rgba(244,196,81,.18),rgba(244,196,81,.04));border-color:rgba(244,196,81,.5);padding-top:26px;padding-bottom:26px}
+  #guildPage .pod.g .medal{background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 8px 22px -8px rgba(244,196,81,.8)}
+  #guildPage .pod.s{background:linear-gradient(180deg,rgba(195,208,234,.14),rgba(195,208,234,.03));border-color:rgba(195,208,234,.45)}
+  #guildPage .pod.s .medal{background:linear-gradient(135deg,var(--silver),var(--silver2))}
+  #guildPage .pod.br{background:linear-gradient(180deg,rgba(220,146,85,.15),rgba(220,146,85,.03));border-color:rgba(220,146,85,.45)}
+  #guildPage .pod.br .medal{background:linear-gradient(135deg,var(--bronze),var(--bronze2))}
+  #guildPage .pod .nm{font-size:13.5px;font-weight:700;line-height:1.3;min-height:2.6em;display:flex;align-items:center;justify-content:center;word-break:keep-all}
+  #guildPage .pod .sc{font-size:clamp(15px,2vw,19px);font-weight:800;margin-top:8px;letter-spacing:-.02em}
+  #guildPage .pod.g .sc{color:var(--gold)} #guildPage .pod.s .sc{color:var(--silver)} #guildPage .pod.br .sc{color:var(--bronze)}
+
+  #guildPage .list{max-height:560px;overflow-y:auto}
+  #guildPage .list::-webkit-scrollbar{width:8px}
+  #guildPage .list::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
+  #guildPage .row{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  #guildPage .row:hover{background:rgba(255,255,255,.035)}
+  #guildPage .row.mine{background:linear-gradient(90deg,rgba(70,207,134,.16),rgba(70,207,134,.03));box-shadow:inset 3px 0 0 var(--mine)}
+  #guildPage .row.hit{background:rgba(244,196,81,.13);box-shadow:inset 3px 0 0 var(--gold)}
+  #guildPage .rk{font-size:15px;font-weight:800;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+  #guildPage .row.top .rk{color:var(--gold)}
+  #guildPage .info{min-width:0}
+  #guildPage .info .pn{font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #guildPage .info .pg{font-size:11.5px;color:var(--dim);margin-top:2px}
+  #guildPage .info .pg .me{color:var(--mine);font-weight:700}
+  #guildPage .sright{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  #guildPage .sright .scv{font-size:15px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  #guildPage .tag{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px}
+
+  #guildPage .stack{display:flex;flex-direction:column;gap:20px}
+  #guildPage .dist{padding:16px 20px 20px}
+  #guildPage .drow{display:grid;grid-template-columns:46px 1fr 34px;align-items:center;gap:10px;margin-bottom:9px}
+  #guildPage .drow .dl{font-size:12.5px;font-weight:700;color:var(--muted)}
+  #guildPage .bar{height:18px;border-radius:6px;background:rgba(255,255,255,.05);overflow:hidden}
+  #guildPage .bar i{display:block;height:100%;border-radius:6px;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  #guildPage .drow .dc{font-size:12.5px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+  #guildPage .drow.zero{opacity:.4}
+  #guildPage .stbl{padding:6px 0 8px}
+  #guildPage .strow{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;padding:8px 20px}
+  #guildPage .strow .sb{font-size:12px;font-weight:800;padding:3px 0;border-radius:6px;text-align:center;color:#0c1322}
+  #guildPage .strow .sr{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  #guildPage .empty-state{padding:60px 20px;text-align:center;color:var(--dim)}
+  #guildPage .empty-state .ico{font-size:40px;opacity:.5;margin-bottom:12px}
+  #guildPage .empty-state p{font-size:14px;line-height:1.6}
+
+  #guildPage /* 요일탭 승/패 뱃지 */
+  .tab-result{display:inline-block;font-size:10px;font-weight:900;padding:1px 5px;border-radius:5px;margin-left:4px;vertical-align:middle;letter-spacing:.04em}
+  #guildPage .tab-result.win{background:rgba(70,207,134,.25);color:#46cf86;border:1px solid rgba(70,207,134,.4)}
+  #guildPage .tab-result.lose{background:rgba(255,94,126,.2);color:#ff5e7e;border:1px solid rgba(255,94,126,.35)}
+  #guildPage .tab.active .tab-result.win{background:rgba(0,0,0,.18);color:#1a6640;border-color:rgba(0,0,0,.2)}
+  #guildPage .tab.active .tab-result.lose{background:rgba(0,0,0,.18);color:#7a1220;border-color:rgba(0,0,0,.2)}
+
+  #guildPage /* 주간 스코어보드 */
+  .scoreboard{background:linear-gradient(135deg,rgba(244,196,81,.12),rgba(244,196,81,.04));border:1px solid rgba(244,196,81,.35);border-radius:14px;padding:14px 20px;margin-bottom:20px;display:none}
+  #guildPage .scoreboard.show{display:block}
+  #guildPage .scoreboard .sb-title{font-size:11px;font-weight:800;color:var(--gold);letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+  #guildPage .scoreboard .sb-body{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap}
+  #guildPage .scoreboard .sb-guild{font-size:17px;font-weight:900;letter-spacing:-.01em}
+  #guildPage .scoreboard .sb-guild.us{color:var(--gold)}
+  #guildPage .scoreboard .sb-guild.them{color:var(--muted)}
+  #guildPage .scoreboard .sb-score{font-size:28px;font-weight:900;letter-spacing:.04em;padding:0 16px;font-variant-numeric:tabular-nums}
+  #guildPage .scoreboard .sb-score .w{color:var(--mine)}
+  #guildPage .scoreboard .sb-score .sep{color:var(--dim);margin:0 4px}
+  #guildPage .scoreboard .sb-score .l{color:var(--s9)}
+  #guildPage .scoreboard .sb-days{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+  #guildPage .scoreboard .sb-day{font-size:11px;font-weight:800;padding:3px 9px;border-radius:7px}
+  #guildPage .scoreboard .sb-day.win{background:rgba(70,207,134,.2);color:#46cf86;border:1px solid rgba(70,207,134,.35)}
+  #guildPage .scoreboard .sb-day.lose{background:rgba(255,94,126,.18);color:#ff5e7e;border:1px solid rgba(255,94,126,.3)}
+  #guildPage .scoreboard .sb-day.none{background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--line)}
+
+  #guildPage /* 요일별 스코어 테이블 (탭 아래) */
+  .week-score-section{padding:14px 20px 18px;border-bottom:1px solid var(--line)}
+  #guildPage .week-score-title{font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+  #guildPage .week-score-enemy{font-size:12px;color:var(--muted);font-weight:600}
+  #guildPage .week-score-enemy b{color:var(--tx)}
+  #guildPage .wk-score-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  #guildPage .wk-score-cell{border-radius:10px;padding:8px 6px;text-align:center;border:1px solid var(--line);background:var(--panel2)}
+  #guildPage .wk-score-cell.win{background:rgba(70,207,134,.15);border-color:rgba(70,207,134,.4)}
+  #guildPage .wk-score-cell.lose{background:rgba(255,94,126,.12);border-color:rgba(255,94,126,.3)}
+  #guildPage .wk-score-cell.none{opacity:.55}
+  #guildPage .wk-score-cell .wk-day{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:4px}
+  #guildPage .wk-score-cell.win .wk-day{color:#46cf86}
+  #guildPage .wk-score-cell.lose .wk-day{color:#ff5e7e}
+  #guildPage .wk-score-cell .wk-result{font-size:15px;font-weight:900}
+  #guildPage .wk-score-cell.win .wk-result{color:#46cf86}
+  #guildPage .wk-score-cell.lose .wk-result{color:#ff5e7e}
+  #guildPage .wk-score-cell.none .wk-result{color:var(--dim);font-size:13px}
+  #guildPage .wk-score-total{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;font-size:14px;font-weight:800}
+  #guildPage .wk-score-total .wt-w{color:#46cf86}
+  #guildPage .wk-score-total .wt-sep{color:var(--dim)}
+  #guildPage .wk-score-total .wt-l{color:#ff5e7e}
+
+  #guildPage .foot{text-align:center;color:var(--dim);font-size:11.5px;margin-top:28px}
+  #guildPage .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--raised);
+    border:1px solid var(--line2);color:var(--tx);font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:12px;
+    box-shadow:0 12px 30px -8px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.3s;z-index:50}
+  #guildPage .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #guildPage .toast.err{border-color:var(--s9)}
+
+  #guildPage .guildbadge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(90deg,rgba(244,196,81,.16),rgba(244,196,81,.04));
+    border:1px solid rgba(244,196,81,.4);border-radius:12px;padding:9px 14px;margin-bottom:18px;font-size:13.5px;font-weight:700}
+  #guildPage .guildbadge .ic{font-size:15px}
+  #guildPage .guildbadge b{color:var(--gold)}
+
+  #guildPage /* 달력 버튼 */
+  .calbtn{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);color:var(--tx);
+    font-size:13.5px;font-weight:700;border:1px solid var(--line2);border-radius:10px;
+    padding:10px 14px;cursor:pointer;transition:.15s}
+  #guildPage .calbtn:hover{border-color:var(--gold);background:var(--raised)}
+  #guildPage .btnrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+  #guildPage /* 선택 날짜 뱃지 */
+  .datebadge{align-items:center;gap:10px;background:linear-gradient(90deg,rgba(70,207,134,.16),rgba(70,207,134,.04));
+    border:1px solid rgba(70,207,134,.4);border-radius:12px;padding:9px 14px;margin-bottom:18px}
+  #guildPage /* datebadge shown only when date is selected */
+  .datebadge .ic{font-size:16px}
+  #guildPage .datebadge .txt{font-size:13.5px;font-weight:700}
+  #guildPage .datebadge .txt b{color:var(--mine)}
+  #guildPage .datebadge .clr{margin-left:auto;background:transparent;border:1px solid var(--line2);color:var(--muted);
+    font-size:12px;font-weight:700;border-radius:8px;padding:5px 11px;cursor:pointer}
+  #guildPage .datebadge .clr:hover{color:var(--tx);border-color:var(--gold)}
+
+  #guildPage /* 달력 모달 */
+  .modal{position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:60;padding:18px}
+  #guildPage .modal.show{display:flex}
+  #guildPage .cal{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+    border-radius:18px;padding:20px;width:min(420px,100%);box-shadow:0 30px 80px -20px rgba(0,0,0,.8)}
+  #guildPage .cal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  #guildPage .cal-top h3{font-size:15px;font-weight:800}
+  #guildPage .cal-x{background:transparent;border:0;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:4px}
+  #guildPage .cal-x:hover{color:var(--tx)}
+  #guildPage .cal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 14px}
+  #guildPage .cal-nav button{background:var(--raised);border:1px solid var(--line2);color:var(--tx);
+    width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px;font-weight:800;transition:.15s}
+  #guildPage .cal-nav button:hover{border-color:var(--gold)}
+  #guildPage .cal-nav button:disabled{opacity:.3;cursor:default}
+  #guildPage .cal-nav .ym{font-size:15px;font-weight:800;letter-spacing:.02em}
+  #guildPage .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  #guildPage .cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--dim);padding:4px 0}
+  #guildPage .cal-dow.sun{color:var(--s9)} #guildPage .cal-dow.sat{color:var(--s4)}
+  #guildPage .cal-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:10px;font-size:13px;font-weight:700;color:var(--dim);position:relative;border:1px solid transparent}
+  #guildPage .cal-cell.pad{visibility:hidden}
+  #guildPage .cal-cell.has{color:var(--tx);background:var(--raised);border-color:var(--line2);cursor:pointer;transition:.13s}
+  #guildPage .cal-cell.has:hover{border-color:var(--gold);transform:translateY(-2px)}
+  #guildPage .cal-cell.has .pt{width:5px;height:5px;border-radius:50%;background:var(--mine);margin-top:3px}
+  #guildPage .cal-cell.sel{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1206;border-color:transparent}
+  #guildPage .cal-cell.sel .pt{background:#1a1206}
+  #guildPage .cal-cell.today{box-shadow:inset 0 0 0 1px var(--gold)}
+  #guildPage .cal-foot{margin-top:14px;font-size:11.5px;color:var(--dim);display:flex;align-items:center;gap:7px;justify-content:center}
+  #guildPage .cal-foot .leg{display:inline-flex;align-items:center;gap:5px}
+  #guildPage .cal-foot .leg i{width:6px;height:6px;border-radius:50%;background:var(--mine);display:inline-block}
+
+  #guildPage /* 공지 작성 모달 */
+  .cal.notice-modal{width:min(720px,96vw);max-height:92vh;overflow-y:auto}
+  #guildPage .notice-grid{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:6px}
+  #guildPage .notice-pane-h{font-size:13px;font-weight:800;color:var(--muted);margin-bottom:9px;display:flex;align-items:baseline;gap:7px}
+  #guildPage .notice-pane-h .hint{font-size:11px;color:var(--dim);font-weight:600}
+
+  #guildPage .notice-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+  #guildPage .ntbtn{background:var(--raised);border:1px solid var(--line2);color:var(--tx);font-family:inherit;
+    font-size:13px;font-weight:800;border-radius:8px;padding:7px 11px;cursor:pointer;transition:.15s;
+    display:inline-flex;align-items:center;gap:6px}
+  #guildPage .ntbtn:hover{border-color:var(--gold);background:var(--panel2)}
+  #guildPage .ntbtn.ghost{color:var(--muted);font-weight:600}
+  #guildPage .nt-sep{width:1px;height:20px;background:var(--line2);margin:0 3px}
+  #guildPage .nt-swatch{width:13px;height:13px;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:#921010}
+
+  #guildPage #ntInput{width:100%;min-height:240px;resize:vertical;background:var(--bg2);border:1px solid var(--line2);
+    color:var(--tx);font-family:inherit;font-size:13.5px;line-height:1.6;border-radius:10px;padding:13px;outline:none}
+  #guildPage #ntInput:focus{border-color:var(--gold)}
+  #guildPage .notice-count{text-align:right;font-size:12px;color:var(--mine);font-weight:800;margin-top:7px;font-variant-numeric:tabular-nums}
+  #guildPage .notice-count.warn{color:var(--s9)}
+
+  #guildPage .game-card{background:#dde7f4;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,.08);
+    box-shadow:0 14px 30px -12px rgba(0,0,0,.5);color:#1c2738}
+  #guildPage .game-card-top{background:linear-gradient(135deg,#3f72a6,#274a73);display:flex;align-items:center;
+    justify-content:space-between;padding:13px 15px}
+  #guildPage .gt-title{color:#fff;font-weight:800;font-size:15px;letter-spacing:-.01em}
+  #guildPage .gt-urgent{background:linear-gradient(135deg,#ff6d4c,#d83f1f);color:#fff;font-size:11px;font-weight:800;
+    padding:5px 11px;border-radius:8px;white-space:nowrap}
+  #guildPage .game-card-body{padding:16px 16px 8px;font-size:14.5px;line-height:1.65;
+    white-space:pre;word-break:keep-all;overflow-wrap:normal;overflow-x:auto}
+  #guildPage .game-card-body b{font-weight:800} #guildPage .game-card-body u{text-decoration:underline}
+  #guildPage .game-card-placeholder{opacity:.4}
+  #guildPage .game-card-foot{padding:8px 16px 16px;font-size:11px;color:#5b6b85;border-top:1px dashed rgba(0,0,0,.14);
+    margin-top:8px;padding-top:10px}
+  #guildPage .notice-actions{margin-top:14px;display:flex;justify-content:flex-end;gap:8px}
+  #guildPage .notice-icons{margin-top:4px;flex-wrap:wrap;row-gap:4px}
+  #guildPage .nt-icon-label{font-size:11px;color:var(--dim);font-weight:700;align-self:center;white-space:nowrap}
+  #guildPage .nticon{padding:5px 8px;font-size:15px;min-width:34px;justify-content:center}
+
+  @media(max-width:760px){#guildPage .notice-grid{grid-template-columns:1fr}}
+  @media(max-width:900px){#guildPage .grid{grid-template-columns:1fr}#guildPage .kpis{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){#guildPage .podium{grid-template-columns:1fr;gap:10px}#guildPage .pod.g{order:-1}#guildPage .search{width:140px}#guildPage .rightcol{align-items:flex-start}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ 게시판 (메인 화면) ══════════════════ -->
+<div id="boardPage">
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Guild Wiki · Guide</div>
+      <h1>게임가이드<span class="guildname"> · [ 빌런 ] 착한사람들</span></h1>
+      <div class="sub">스크린샷과 글로 자유롭게 정리하는 우리 길드의 게임 가이드</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="ghostbtn" id="pointsBtn" style="font-size:12px;padding:7px 11px">🏆 포인트</button>
+      <button class="ghostbtn" id="adminLogOpenBtn" style="font-size:12px;padding:7px 11px" title="운영자 전용">🔒 삭제 로그</button>
+      <button class="ghostbtn" id="pwChangeBtn" style="font-size:12px;padding:7px 11px" title="운영자 전용">🔑 비번변경</button>
+    </div>
+  </header>
+
+  <!-- 목록 화면 -->
+  <div id="gridView">
+    <div class="visitor-bar">
+      <span class="visitor-pill">👥 총 방문자 <span class="v-num" id="visitorTotal">-</span></span>
+      <span class="today-pill">📅 오늘 <span class="v-num" id="visitorToday">-</span></span>
+    </div>
+    <div class="toolbar-row">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="q" placeholder="가이드 검색" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="dangerbtn" id="multiDeleteBtn" style="font-size:12.5px">☑️ 선택 삭제</button>
+        <button class="primarybtn" id="addGuideBtn">+ 새 가이드 추가</button>
+      </div>
+    </div>
+    <!-- 선택 삭제 액션 바 -->
+    <div class="select-bar" id="selectBar">
+      <span class="sel-info">게시글을 선택하세요 &nbsp;·&nbsp; <span id="selCount">0</span>개 선택됨</span>
+      <button class="selbtn selall" id="selAllBtn">전체 선택</button>
+      <button class="selbtn" id="selDeleteBtn" disabled>🗑 선택 삭제</button>
+      <button class="selbtn cancel" id="selCancelBtn">취소</button>
+    </div>
+    <div class="board-wrap" id="grid">
+      <div class="empty-state"><div class="ico">⏳</div><p>가이드를 불러오는 중…</p></div>
+    </div>
+  </div>
+
+  <!-- 상세/편집 화면 -->
+  <div id="detailView">
+    <div class="detail-top">
+      <button class="ghostbtn" id="backBtn">← 목록으로</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="lock-badge" id="lockBadge" hidden></span>
+        <span class="save-indicator" id="saveIndicator">대기 중</span>
+        <button class="dangerbtn" id="deleteGuideBtn">🗑 삭제</button>
+        <button class="ghostbtn" id="viewToggleBtn">👁 게시글 보기</button>
+      </div>
+    </div>
+    <div class="detail-head">
+      <button class="detail-icon" id="iconBtn" title="아이콘 변경">📘</button>
+      <div class="emoji-pop" id="emojiPop" hidden></div>
+      <div class="detail-headtext">
+        <input class="detail-title-input" id="dTitle" placeholder="가이드 제목">
+        <input class="detail-desc-input" id="dDesc" placeholder="한 줄 설명 (선택)">
+        <span id="dAuthor" style="font-size:11.5px;color:var(--dim);font-weight:600"></span>
+        <div id="dDateMeta"></div>
+      </div>
+    </div>
+    <div class="detail-toolbar">
+      <button class="tbtn" id="addTextBtn">📝 텍스트 추가</button>
+      <button class="tbtn" id="addImgBtn">🖼 스크린샷 추가</button>
+      <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <span class="paste-hint"><kbd>Ctrl</kbd>+<kbd>V</kbd> 붙여넣기 · 드래그&드롭 가능</span>
+      <span class="cap-hint" id="capHint"></span>
+    </div>
+    <div class="post-search-bar" id="postSearchBar">
+      <span class="ps-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+      <input id="postSearchInput" placeholder="이 게시글 안에서 검색…" autocomplete="off">
+      <span class="ps-count" id="postSearchCount"></span>
+      <div class="ps-nav">
+        <button type="button" id="postSearchPrev" title="이전 결과">▲</button>
+        <button type="button" id="postSearchNext" title="다음 결과">▼</button>
+      </div>
+      <button type="button" class="ps-clear" id="postSearchClear" title="검색어 지우기">×</button>
+    </div>
+    <div class="blocks-wrap" id="blocksWrap"></div>
+    <div class="empty-state" id="blocksEmpty" hidden>
+      <div class="ico">🗒️</div>
+      <p>아직 작성된 내용이 없어요.<br>위 버튼이나 <b style="color:var(--brand2)">Ctrl+V</b> 붙여넣기로 텍스트·스크린샷을 자유롭게 추가해보세요.</p>
+    </div>
+
+    <!-- 댓글 섹션 (읽기 모드에서만 표시) -->
+    <div class="comment-section" id="commentSection" style="display:none">
+      <div class="comment-section-title">
+        💬 댓글
+        <span class="cmt-count-badge" id="cmtCountBadge">0</span>
+      </div>
+      <div class="cmt-form">
+        <div class="cmt-form-row">
+          <input id="cmtNick" placeholder="닉네임" maxlength="16" autocomplete="off">
+          <input id="cmtPw" type="password" placeholder="비밀번호 (삭제용)" maxlength="20" autocomplete="off">
+        </div>
+        <textarea id="cmtBody" placeholder="댓글을 입력하세요…" maxlength="500"></textarea>
+        <div class="cmt-form-actions">
+          <button class="cmt-submit-btn" id="cmtSubmitBtn">댓글 달기 ✓</button>
+        </div>
+      </div>
+      <div class="cmt-list" id="cmtList">
+        <div class="cmt-empty">첫 댓글을 남겨보세요 👋</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">스크린샷은 자동으로 압축되어 저장돼요 · 가이드별 용량 한도 약 4.5MB</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 드래그&드롭 안내 오버레이 -->
+<div class="paste-flash" id="pasteFlash"><span>🖼 여기에 놓으면 스크린샷이 추가돼요</span></div>
+
+<!-- 새 가이드 추가 모달 -->
+<div class="modal-overlay" id="newGuideModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>📚 새 가이드 추가</h3><button class="modal-x" id="newGuideClose">×</button></div>
+    <div class="emoji-row" id="newGuideEmojiRow"></div>
+    <input id="ngTitle" placeholder="가이드 제목 (예: 연구 올리는 방법)" maxlength="40">
+    <textarea id="ngDesc" placeholder="한 줄 설명 (선택)" rows="2" maxlength="80"></textarea>
+    <input id="ngAuthor" placeholder="작성자 이름" maxlength="20">
+    <input id="ngPw" type="password" placeholder="비밀번호 (수정/삭제용)" maxlength="30">
+    <p style="font-size:11.5px;color:var(--dim);margin:-2px 0 10px;line-height:1.5">이 비밀번호로 나중에 수정·삭제할 수 있어요. 잊지 않게 기억해두세요.</p>
+    <button class="primarybtn" id="ngCreateBtn" style="width:100%;justify-content:center;padding:11px 0">만들기</button>
+  </div>
+</div>
+
+<!-- 비밀번호 확인 모달 (삭제/수정 공용) -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-card" style="max-width:340px">
+    <div class="modal-head">
+      <h3 id="pwModalTitle">🔒 비밀번호 확인</h3>
+      <button class="modal-x" id="adminClose">×</button>
+    </div>
+    <p id="pwModalDesc" style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">비밀번호를 입력해주세요.</p>
+    <div style="position:relative">
+      <input type="password" id="adminPw" placeholder="비밀번호 입력" maxlength="30" style="padding-right:40px">
+      <button id="adminPwToggle" type="button" style="position:absolute;right:10px;top:50%;transform:translateY(-60%);background:none;border:0;color:var(--muted);cursor:pointer;font-size:15px">👁</button>
+    </div>
+    <p id="adminErr" style="font-size:12px;color:var(--danger);margin-bottom:8px;display:none">비밀번호가 틀렸어요.</p>
+    <button class="dangerbtn" id="adminConfirmBtn" style="width:100%;justify-content:center;padding:11px 0;margin-top:4px">확인</button>
+  </div>
+</div>
+
+<!-- 운영자 비밀번호 변경 모달 -->
+<div class="modal-overlay" id="pwChangeModal">
+  <div class="modal-card" style="max-width:360px">
+    <div class="modal-head">
+      <h3>🔑 비밀번호 변경</h3>
+      <button class="modal-x" id="pwChangeClose">×</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+      여기서 입력하는 <b style="color:var(--tx)">현재 비밀번호</b>는 <b style="color:var(--gold)">처음 설정된 고정 비밀번호</b>예요 (바뀌지 않아요).<br>
+      아래 <b style="color:var(--tx)">새 비밀번호</b>는 포인트 · 삭제 로그 등에서 실제로 쓰는 운영 비밀번호가 되고, 이후 바꿀 때마다 새로 덮어써져요.
+    </p>
+    <input type="password" id="pwChangeCurrent" placeholder="현재 비밀번호 (고정)" maxlength="30" autocomplete="off">
+    <input type="password" id="pwChangeNew" placeholder="새 비밀번호 (4자 이상, 포인트 접속용)" maxlength="30" autocomplete="off">
+    <input type="password" id="pwChangeNew2" placeholder="새 비밀번호 확인" maxlength="30" autocomplete="off">
+    <p id="pwChangeErr" style="font-size:12px;color:var(--danger);margin-bottom:8px;display:none"></p>
+    <button class="dangerbtn" id="pwChangeConfirmBtn" style="width:100%;justify-content:center;padding:11px 0;margin-top:4px">변경하기</button>
+  </div>
+</div>
+
+<!-- 편집 진입 시 별명 입력 모달 (다른 사람에게 "○○님 편집 중"으로 표시하기 위함) -->
+<div class="modal-overlay" id="nickModal">
+  <div class="modal-card" style="max-width:340px">
+    <div class="modal-head">
+      <h3>✏️ 편집 시작</h3>
+      <button class="modal-x" id="nickClose">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">편집 중에는 다른 사람이 같은 글을 수정할 수 없어요.<br>표시할 별명을 입력해주세요.</p>
+    <input type="text" id="nickInput" placeholder="별명 (예: 길드장)" maxlength="16">
+    <button class="primarybtn" id="nickConfirmBtn" style="width:100%;justify-content:center;padding:11px 0;margin-top:4px">편집 시작</button>
+  </div>
+</div>
+
+<!-- 라이트박스 -->
+<div class="modal-overlay" id="lightbox">
+  <div class="lightbox-inner">
+    <button class="modal-x" id="lbClose">×</button>
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="이전 이미지">‹</button>
+    <img id="lbImg" alt="스크린샷 확대 보기">
+    <button class="lb-nav lb-next" id="lbNext" aria-label="다음 이미지">›</button>
+    <div class="lb-counter" id="lbCounter"></div>
+  </div>
+</div>
+
+<!-- 관리자 전용: 삭제/수정 로그 뷰어 -->
+<div class="modal-overlay" id="adminLogModal">
+  <div class="modal-card" style="width:min(760px,96vw);max-height:82vh;display:flex;flex-direction:column">
+    <div class="modal-head">
+      <h3>🔒 삭제 · 수정 로그 (운영자 전용)</h3>
+      <button class="modal-x" id="adminLogClose">×</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--dim);margin:-8px 0 12px;line-height:1.6">
+      IP는 방문자의 브라우저가 스스로 보고하는 공인 IP예요. VPN·프록시를 쓰면 실제 위치와 다를 수 있고,
+      네트워크 상황에 따라 확인이 안 될 수도 있어요. 실패(빨간 글씨)로 표시된 항목은 비밀번호가 틀려 처리되지 않은 시도예요.
+    </p>
+    <div style="overflow:auto;flex:1;border:1px solid var(--line);border-radius:10px;min-height:120px">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead>
+          <tr style="background:var(--raised);text-align:left;position:sticky;top:0">
+            <th style="padding:8px 10px;white-space:nowrap">시각</th>
+            <th style="padding:8px 10px;white-space:nowrap">작업</th>
+            <th style="padding:8px 10px">대상</th>
+            <th style="padding:8px 10px;white-space:nowrap">처리자</th>
+            <th style="padding:8px 10px;white-space:nowrap">IP</th>
+          </tr>
+        </thead>
+        <tbody id="adminLogBody">
+          <tr><td colspan="5" style="padding:22px;text-align:center;color:var(--dim)">불러오는 중…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="ghostbtn" id="adminLogRefreshBtn">↻ 새로고침</button>
+      <button class="dangerbtn" id="adminLogClearBtn">🗑 로그 전체 지우기</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════ 길드전 랭킹 (포인트 버튼으로 진입) ══════════════════ -->
+<div id="guildPage" style="display:none">
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="eyebrow">Guild War · Ranking</div>
+      <h1>길드전 랭킹 <span class="guild">[ 빌 런 ] 착한사람들</span></h1>
+      <div class="sub">요일별 랭킹 포인트</div>
+    </div>
+    <div class="rightcol">
+      <div class="btnrow">
+        <button class="calbtn" id="backToBoardBtn">← 게시판으로</button>
+        <button class="calbtn" id="calBtn">📅 달력으로 보기</button>
+        <button class="calbtn" id="aliasBtn">🔗 닉네임 관리</button>
+        <button class="calbtn" id="compareBtn">📊 전일 비교</button>
+        <button class="calbtn" id="noticeBtn">📢 공지 작성</button>
+      </div>
+      <div class="datebox"><div class="d" id="srcLabel">집계 기준일</div><div class="v num" id="dateVal">2026.06.16</div></div>
+    </div>
+  </header>
+
+  <div class="datebadge" id="dateBadge" style="display:none;">
+    <span class="txt" id="badgeTxt"></span>
+    <button class="clr" id="badgeClr">최신 날짜로</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="scoreboard" id="scoreboard">
+    <div class="sb-title">🏆 이번 주 길드전 승점 <span style="font-size:10px;color:rgba(244,196,81,.65);font-weight:600;letter-spacing:.04em">월 1점 · 화~금 2점 · 토 4점</span></div>
+    <div class="sb-body">
+      <span class="sb-guild us">[ 빌 런 ] 착한사람들</span>
+      <span class="sb-score"><span class="w" id="sbWin">0</span><span class="sep">:</span><span class="l" id="sbLose">0</span></span>
+      <span class="sb-guild them" id="sbEnemy">—</span>
+    </div>
+    <div class="sb-days" id="sbDays"></div>
+  </div>
+  <div class="guildbadge" id="guildBadge" style="display:none;"></div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="tabs" id="dayTabs"></div>
+      <div id="weekScoreSection"></div>
+      <div class="card-h">
+        <h2>랭킹 <span class="hint" id="rankhint"></span></h2>
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="qGuild" placeholder="플레이어 검색" autocomplete="off">
+        </div>
+      </div>
+      <div id="podium"></div>
+      <div class="list" id="list"></div>
+    </div>
+    <div class="stack">
+      <div class="card"><div class="card-h"><h2>단계별 인원 분포</h2><span class="hint" id="disthint"></span></div><div class="dist" id="dist"></div></div>
+      <div class="card"><div class="card-h"><h2>단계 기준표</h2><span class="hint">점수 → 단계</span></div><div class="stbl" id="stbl"></div></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toastGuild"></div>
+
+<!-- 달력 모달 -->
+<div class="modal" id="calModal">
+  <div class="cal">
+    <div class="cal-top">
+      <h3>📅 날짜별 기록 보기</h3>
+      <button class="cal-x" id="calClose">×</button>
+    </div>
+    <div class="cal-nav">
+      <button id="calPrev">‹</button>
+      <div class="ym" id="calYM"></div>
+      <button id="calNext">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-foot"><span class="leg"><i></i> 데이터 있는 날짜</span></div>
+  </div>
+</div>
+
+<!-- 닉네임 별칭 관리 모달 -->
+<div class="modal" id="aliasModal">
+  <div class="cal" style="width:min(560px,100%)">
+    <div class="cal-top">
+      <h3>🔗 닉네임 별칭 관리</h3>
+      <button class="cal-x" id="aliasClose">×</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-bottom:14px">
+      닉네임을 바꾼 길드원의 <b style="color:var(--tx)">과거 닉네임</b>과 <b style="color:var(--tx)">현재 닉네임</b>을 등록하면,
+      집계 시 같은 사람으로 합쳐서 주간 평균을 계산해요.<br>
+      <b style="color:var(--gold)">단, 여기서 등록한 내용은 이 브라우저에서 미리 확인하는 용도예요.</b>
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex:1;min-width:220px;align-items:center">
+        <input id="aliasFrom" placeholder="과거 닉네임" style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;border-radius:9px;padding:9px 11px;outline:none">
+        <span style="color:var(--dim);font-weight:800">→</span>
+        <input id="aliasTo" placeholder="현재 닉네임" style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;border-radius:9px;padding:9px 11px;outline:none">
+      </div>
+      <button class="calbtn" id="aliasAddBtn" style="white-space:nowrap;width:100%;justify-content:center">➕ 추가</button>
+    </div>
+    <div id="aliasList" style="max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:14px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="calbtn" id="aliasCopyBtn">📋 엑셀용 텍스트 복사</button>
+    </div>
+  </div>
+</div>
+
+<!-- 전일 비교 모달 -->
+<div class="modal" id="compareModal">
+  <div class="cal" style="width:min(680px,96vw);max-height:88vh;overflow-y:auto">
+    <div class="cal-top">
+      <h3>📊 전일 비교</h3>
+      <button class="cal-x" id="compareClose">×</button>
+    </div>
+
+    <!-- 날짜 선택 행 -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
+        <span style="font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">이전 날짜</span>
+        <select id="comparePrevSel" style="flex:1;background:var(--bg2);border:1px solid var(--line2);color:var(--tx);font-family:inherit;font-size:13px;font-weight:700;border-radius:9px;padding:7px 10px;outline:none;cursor:pointer"></select>
+      </div>
+      <span style="color:var(--dim);font-weight:800;font-size:16px">→</span>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
+        <span style="font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap">비교 날짜</span>
+        <select id="compareCurSel" style="flex:1;background:var(--bg2);border:1px solid var(--line2);color:var(--gold);font-family:inherit;font-size:13px;font-weight:700;border-radius:9px;padding:7px 10px;outline:none;cursor:pointer"></select>
+      </div>
+    </div>
+
+    <div id="compareRange" style="font-size:12.5px;color:var(--dim);margin-bottom:14px"></div>
+
+    <div style="font-size:13px;font-weight:800;color:var(--gold);letter-spacing:.04em;margin-bottom:8px">⬆ 6단계 이하 포인트/단계 변동</div>
+    <div id="compareUpList" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px"></div>
+
+    <div style="font-size:13px;font-weight:800;color:var(--s9);letter-spacing:.04em;margin-bottom:8px">🚫 이전 날짜 참가 · 비교 날짜 불참</div>
+    <div id="compareMissingList" style="border:1px solid var(--line);border-radius:10px;overflow:hidden"></div>
+  </div>
+</div>
+
+<!-- 공지 작성 모달 -->
+<div class="modal" id="noticeModal">
+  <div class="cal notice-modal">
+    <div class="cal-top">
+      <h3>📢 공지 작성 · 미리보기</h3>
+      <button class="cal-x" id="noticeClose">×</button>
+    </div>
+    <div class="notice-grid">
+      <div class="notice-pane">
+        <div class="notice-pane-h">공지 편집</div>
+        <div class="notice-toolbar">
+          <button type="button" class="ntbtn" data-tag="b" title="굵게"><b>B</b></button>
+          <button type="button" class="ntbtn" data-tag="u" title="밑줄"><u>U</u></button>
+          <button type="button" class="ntbtn" id="ntColorBtn" title="글자 색상">A <span class="nt-swatch" id="ntSwatch"></span></button>
+          <input type="color" id="ntColorPicker" value="#921010" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">
+          <span class="nt-sep"></span>
+          <button type="button" class="ntbtn ghost" id="ntClearBtn" title="모두 지우기">🗑 지우기</button>
+        </div>
+        <div class="notice-toolbar notice-icons">
+          <span class="nt-icon-label">아이콘</span>
+          <button type="button" class="ntbtn nticon" data-insert="👑" title="왕관">👑</button>
+          <button type="button" class="ntbtn nticon" data-insert="🗡" title="검">🗡</button>
+          <button type="button" class="ntbtn nticon" data-insert="♧" title="클로버">♧</button>
+          <button type="button" class="ntbtn nticon" data-insert="☞" title="손가락">☞</button>
+          <button type="button" class="ntbtn nticon" data-insert="★" title="별">★</button>
+          <button type="button" class="ntbtn nticon" data-insert="🧀" title="치즈">🧀</button>
+          <button type="button" class="ntbtn nticon" data-insert="💬" title="말풍선">💬</button>
+          <button type="button" class="ntbtn nticon" data-insert="-▶" title="화살표">-▶</button>
+          <button type="button" class="ntbtn nticon" data-insert="🌞" title="해">🌞</button>
+          <button type="button" class="ntbtn nticon" data-insert="🌙" title="달">🌙</button>
+          <button type="button" class="ntbtn nticon" data-insert="💡" title="전구">💡</button>
+          <button type="button" class="ntbtn nticon" data-insert="🚨" title="경고">🚨</button>
+        </div>
+        <textarea id="ntInput" maxlength="1000" placeholder="공지 내용을 입력하세요. <b>굵게</b>, <u>밑줄</u>, <color=#hex>색상</color> 태그를 사용할 수 있어요."></textarea>
+        <div class="notice-count"><span id="ntCount">0</span>/1000</div>
+      </div>
+      <div class="notice-pane">
+        <div class="notice-pane-h">실시간 미리보기 <span class="hint">· 게임 공지창 폭 기준 자동 줄바꿈</span></div>
+        <div class="game-card">
+          <div class="game-card-top">
+            <span class="gt-title">길드 공지</span>
+          </div>
+          <div class="game-card-body game-card-placeholder" id="ntPreview">미리보기가 여기에 표시돼요…</div>
+          <div class="game-card-foot" id="ntFootTime"></div>
+        </div>
+        <div class="notice-actions">
+          <button class="loadbtn" id="ntCopyBtn">📋 게임용 코드 복사</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ── 화면 전환: 게시판 ⇄ 길드전 랭킹 (같은 페이지 안에서 보이기/숨기기만 함) ── */
+function showGuildPage(){
+  document.getElementById("boardPage").style.display = "none";
+  document.getElementById("guildPage").style.display = "";
+  window.scrollTo(0, 0);
+}
+function showBoardPage(){
+  document.getElementById("guildPage").style.display = "none";
+  document.getElementById("boardPage").style.display = "";
+  window.scrollTo(0, 0);
+}
+</script>
+
+<!-- ══════════════════ 게시판 로직 ══════════════════ -->
+<script>
+/* ── Firebase 설정: 아래 6개 값을 본인 Firebase 프로젝트 값으로 바꿔주세요.
+   (Firebase 콘솔 > 프로젝트 설정 > 일반 > "내 앱" 의 SDK 설정값을 그대로 복사) ── */
+const firebaseConfig = {
+  apiKey: "AIzaSyC39L4wQKr1NyrOWaUHoiyOnaDX59-rHaA",
+  authDomain: "guild-wiki.firebaseapp.com",
+  databaseURL: "https://guild-wiki-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "guild-wiki",
+  storageBucket: "guild-wiki.firebasestorage.app",
+  messagingSenderId: "606700314584",
+  appId: "1:606700314584:web:f9a2bebfc66a44be449cad"
+};
+const firebaseReady = firebaseConfig.apiKey!=="YOUR_API_KEY";
+let fbdb=null;
+if(firebaseReady){
+  try{ firebase.initializeApp(firebaseConfig); fbdb=firebase.database(); }
+  catch(e){ console.error("Firebase 초기화 실패:",e); }
+}
+
+/* ── 저장소 래퍼: Claude 미리보기에서는 window.storage(영구 저장),
+   GitHub 등 일반 호스팅에서는 Firebase Realtime Database(모두가 같은 글을 보는 공유 저장소)로 저장.
+   firebaseConfig를 채우지 않으면 메모리 저장(새로고침 시 초기화)으로만 동작해요. ── */
+const memStore={};
+let warnedNoFirebase=false;
+const storage={
+  async get(key,shared){
+    if(window.storage){ try{return await window.storage.get(key,shared);}catch(e){return null;} }
+    if(fbdb){
+      try{
+        const snap=await fbdb.ref("board/"+encodeURIComponent(key)).get();
+        return snap.exists()?{key,value:snap.val(),shared}:null;
+      }catch(e){ console.error("Firebase 읽기 실패:",e); return null; }
+    }
+    if(!warnedNoFirebase){warnedNoFirebase=true;console.warn("Firebase가 설정되지 않아 새로고침하면 글이 사라져요. firebaseConfig를 채워주세요.");}
+    const k=(shared?"s:":"p:")+key;
+    return Object.prototype.hasOwnProperty.call(memStore,k)?{key,value:memStore[k],shared}:null;
+  },
+  async set(key,value,shared){
+    if(window.storage){ try{return await window.storage.set(key,value,shared);}catch(e){return null;} }
+    if(fbdb){
+      try{
+        await fbdb.ref("board/"+encodeURIComponent(key)).set(value);
+        return {key,value,shared};
+      }catch(e){ console.error("Firebase 쓰기 실패:",e); return null; }
+    }
+    if(!warnedNoFirebase){warnedNoFirebase=true;console.warn("Firebase가 설정되지 않아 새로고침하면 글이 사라져요. firebaseConfig를 채워주세요.");}
+    const k=(shared?"s:":"p:")+key; memStore[k]=value; return {key,value,shared};
+  },
+  async delete(key,shared){
+    if(window.storage){ try{return await window.storage.delete(key,shared);}catch(e){return null;} }
+    if(fbdb){
+      try{
+        await fbdb.ref("board/"+encodeURIComponent(key)).remove();
+        return {key,deleted:true,shared};
+      }catch(e){ console.error("Firebase 삭제 실패:",e); return null; }
+    }
+    const k=(shared?"s:":"p:")+key; delete memStore[k]; return {key,deleted:true,shared};
+  }
+};
+async function loadJSON(key,shared){
+  try{
+    const r=await storage.get(key,shared);
+    if(!r||r.value==null)return null;
+    return JSON.parse(r.value);
+  }catch(e){return null;}
+}
+async function saveJSON(key,obj,shared){
+  try{ const r=await storage.set(key,JSON.stringify(obj),shared); return !!r; }
+  catch(e){ return false; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   운영자 전용 삭제/수정 로그
+   - "누가(작성자 본인/운영자/알 수 없음) · 언제 · 무엇을 · 어떤 IP에서" 삭제/수정 시도했는지 기록.
+   - IP는 서버 로그가 아니라 브라우저가 ipify에 물어서 스스로 보고하는 "공인 IP"라
+     VPN/프록시를 쓰면 실제 위치와 다를 수 있고, 확인 자체가 실패할 수도 있음(그 경우 "확인불가").
+   - 로그는 다른 데이터와 마찬가지로 공유 저장소(Firebase)에 저장되며,
+     화면(로그 뷰어 모달)만 운영자 비밀번호로 잠겨 있음 — 진짜 서버 접근 제어는 아님에 유의.
+   ══════════════════════════════════════════════════════════════ */
+const ADMIN_LOG_KEY="adminLogs:list";
+const ADMIN_LOG_MAX=500;
+let cachedClientIP=null;
+
+async function getClientIP(){
+  if(cachedClientIP)return cachedClientIP;
+  try{
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),4000);
+    const res=await fetch("https://api.ipify.org?format=json",{signal:ctrl.signal});
+    clearTimeout(timer);
+    const data=await res.json();
+    cachedClientIP=data.ip||"확인불가";
+  }catch(e){
+    cachedClientIP="확인불가";
+  }
+  return cachedClientIP;
+}
+
+async function loadAdminLogs(){
+  return (await loadJSON(ADMIN_LOG_KEY,true))||[];
+}
+async function saveAdminLogs(list){
+  return await saveJSON(ADMIN_LOG_KEY,list,true);
+}
+
+/* action: "게시글 삭제" 처럼 표시용 문자열. "실패"라는 단어가 들어가면 로그 뷰어에서 빨간색으로 강조됨.
+   target: 어떤 글/댓글인지 알아볼 수 있는 제목/내용 일부.
+   actor: "운영자" | "작성자 본인" | "알 수 없음(비번 불일치)" 등. */
+async function logAdminAction(action,target,actor){
+  try{
+    const ip=await getClientIP();
+    const entry={
+      id:uid(),
+      action,
+      target:target||"(제목 없음)",
+      actor:actor||"알 수 없음",
+      ip,
+      ua:(navigator.userAgent||"").slice(0,180),
+      ts:Date.now()
+    };
+    const list=await loadAdminLogs();
+    list.push(entry);
+    if(list.length>ADMIN_LOG_MAX) list.splice(0,list.length-ADMIN_LOG_MAX);
+    await saveAdminLogs(list);
+  }catch(e){
+    console.warn("관리자 로그 기록 실패:",e);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   편집 락(LOCK) 시스템
+   - 한 명이 편집 모드에 들어가면 다른 사람은 편집에 들어갈 수 없도록 막는다.
+   - 같은 글을 두 사람이 동시에 고치면서 서로 덮어쓰는 것을 방지하는 용도.
+   - Firebase가 연결돼 있으면 실시간으로 락 상태를 구독해 즉시 갱신.
+     (Firebase 없이 메모리/Claude storage만 쓰는 경우엔 짧은 주기로 폴링해 흉내냄)
+   - 락 소유자는 "내가 살아있다"는 신호(heartbeat)를 주기적으로 보내고,
+     읽기 전용 화면에서는 그 신호가 LOCK_TTL_MS(2분) 이상 끊겼을 때만
+     "방치된 락"으로 간주해 자동으로 풀어준다.
+   ══════════════════════════════════════════════════════════════ */
+const LOCK_TTL_MS = 2*60*1000; // 2분간 활동(heartbeat) 없으면 방치된 락으로 보고 해제
+const HEARTBEAT_MS = 25*1000;  // 25초마다 내가 편집 중임을 갱신
+
+/* 이 브라우저(탭)를 구분하기 위한 익명 임시 ID. 이름은 노출되지 않고 락 소유자 판별에만 쓰임. */
+function getClientId(){
+  let cid=sessionStorage.getItem("boardClientId");
+  if(!cid){ cid="c-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,9); sessionStorage.setItem("boardClientId",cid); }
+  return cid;
+}
+const CLIENT_ID=getClientId();
+
+/* 현재 알고 있는 모든 가이드의 락 상태 캐시: {guideId: {clientId,nickname,ts} | null} */
+const lockState={};
+const lockListeners=new Set(); // 락 상태가 바뀔 때마다 호출할 콜백들 (화면 갱신용)
+function notifyLockListeners(){ lockListeners.forEach(fn=>{ try{fn();}catch(e){} }); }
+
+function lockIsStale(lock){
+  return !lock || !lock.ts || (Date.now()-lock.ts) > LOCK_TTL_MS;
+}
+/* 화면에 보여줄 유효한 락만 반환 (방치된 락이면 null 취급) */
+function getActiveLock(guideId){
+  const l=lockState[guideId];
+  return lockIsStale(l)?null:l;
+}
+
+let lockFbRefs={}; // guideId -> firebase ref (구독 해제용)
+function watchLock(guideId){
+  if(lockFbRefs[guideId])return; // 이미 구독 중
+  if(fbdb && !window.storage){
+    const ref=fbdb.ref("board/lock/"+encodeURIComponent(guideId));
+    ref.on("value",snap=>{
+      lockState[guideId]=snap.exists()?snap.val():null;
+      notifyLockListeners();
+    });
+    lockFbRefs[guideId]=ref;
+  }
+}
+function unwatchLock(guideId){
+  if(lockFbRefs[guideId]){ lockFbRefs[guideId].off(); delete lockFbRefs[guideId]; }
+}
+
+/* Firebase 실시간 구독이 없는 환경(메모리/Claude storage)을 위한 폴링 */
+let lockPollTimer=null;
+function startLockPolling(guideIds){
+  stopLockPolling();
+  lockPollTimer=setInterval(async()=>{
+    for(const id of guideIds()){
+      const v=await loadJSON("guide:"+id+":lock",true);
+      const prev=lockState[id];
+      lockState[id]=v;
+      if(JSON.stringify(prev)!==JSON.stringify(v)) notifyLockListeners();
+    }
+  },4000);
+}
+function stopLockPolling(){ if(lockPollTimer){clearInterval(lockPollTimer);lockPollTimer=null;} }
+
+async function readLock(guideId){
+  if(fbdb && !window.storage){
+    try{
+      const snap=await fbdb.ref("board/lock/"+encodeURIComponent(guideId)).get();
+      return snap.exists()?snap.val():null;
+    }catch(e){ return lockState[guideId]||null; }
+  }
+  return await loadJSON("guide:"+guideId+":lock",true);
+}
+async function writeLock(guideId,lock){
+  if(fbdb && !window.storage){
+    try{
+      if(lock) await fbdb.ref("board/lock/"+encodeURIComponent(guideId)).set(lock);
+      else await fbdb.ref("board/lock/"+encodeURIComponent(guideId)).remove();
+      return true;
+    }catch(e){ return false; }
+  }
+  if(lock) return await saveJSON("guide:"+guideId+":lock",lock,true);
+  await storage.delete("guide:"+guideId+":lock",true);
+  return true;
+}
+
+let myLockGuideId=null;
+let heartbeatTimer=null;
+
+/* 편집 진입 시도: 이미 다른 사람이(방치되지 않은) 락을 쥐고 있으면 false 반환 */
+async function tryAcquireLock(guideId,nickname){
+  const existing=await readLock(guideId);
+  if(existing && existing.clientId!==CLIENT_ID && !lockIsStale(existing)){
+    lockState[guideId]=existing; notifyLockListeners();
+    return {ok:false,owner:existing};
+  }
+  const lock={clientId:CLIENT_ID,nickname:nickname||"익명",ts:Date.now()};
+  const ok=await writeLock(guideId,lock);
+  if(!ok)return {ok:false,owner:existing};
+  lockState[guideId]=lock; notifyLockListeners();
+  myLockGuideId=guideId;
+  // Firebase 환경에서는 연결이 끊길 때 서버가 자동으로 락을 제거하도록 설정
+  if(fbdb && !window.storage){
+    try{ await fbdb.ref("board/lock/"+encodeURIComponent(guideId)).onDisconnect().remove(); }catch(e){}
+  }
+  startHeartbeat(guideId);
+  return {ok:true};
+}
+function startHeartbeat(guideId){
+  stopHeartbeat();
+  heartbeatTimer=setInterval(async()=>{
+    if(myLockGuideId!==guideId)return;
+    // 내 락이 다른 사람 것으로 바뀌었으면(드물게 충돌) 더 이상 갱신하지 않음
+    const cur=await readLock(guideId);
+    if(cur && cur.clientId!==CLIENT_ID)return;
+    const lock={clientId:CLIENT_ID,nickname:(cur&&cur.nickname)||"익명",ts:Date.now()};
+    await writeLock(guideId,lock);
+    lockState[guideId]=lock; notifyLockListeners();
+  },HEARTBEAT_MS);
+}
+function stopHeartbeat(){ if(heartbeatTimer){clearInterval(heartbeatTimer);heartbeatTimer=null;} }
+
+/* 편집 종료(보기 모드 전환/저장 완료/다른 글로 이동/창 닫기) 시 내 락 해제 */
+async function releaseLock(guideId){
+  stopHeartbeat();
+  if(!guideId)return;
+  const cur=await readLock(guideId);
+  if(cur && cur.clientId===CLIENT_ID){ await writeLock(guideId,null); lockState[guideId]=null; notifyLockListeners(); }
+  if(myLockGuideId===guideId)myLockGuideId=null;
+}
+window.addEventListener("beforeunload",()=>{
+  if(!myLockGuideId)return;
+  // 창이 닫힐 때 락을 즉시 동기적으로 해제
+  // Firebase는 onDisconnect()로 서버 측에서 자동 제거, 그 외는 최선 노력으로 제거
+  if(fbdb && !window.storage){
+    try{ fbdb.ref("board/lock/"+encodeURIComponent(myLockGuideId)).remove(); }catch(e){}
+  }else{
+    releaseLock(myLockGuideId);
+  }
+});
+
+
+/* ── 유틸 ── */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* 카카오톡/네이버/인스타 등 인앱 브라우저 내부에서 링크를 열면, 그 내부 웹뷰가 구글 로그인을
+   차단(disallowed_useragent)해서 구글 로그인 버튼이 안 보이고 페이스북/OTP 로그인만 뜨는 문제가 생김.
+   링크를 "시스템 기본 브라우저(크롬/사파리)"로 직접 열어주면 구글 로그인이 정상적으로 보임.
+   안드로이드는 intent:// 스킴, iOS는 x-safari-https:// 스킴으로 강제 이동시켜 인앱 웹뷰를 건너뛴다. */
+function openExternal(e,url){
+  if(e){e.preventDefault();}
+  const ua=navigator.userAgent||"";
+  const isAndroid=/Android/i.test(ua);
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  try{
+    if(isAndroid){
+      const stripped=url.replace(/^https?:\/\//,"");
+      const scheme=url.startsWith("https")?"https":"http";
+      const intentUrl="intent://"+stripped+"#Intent;scheme="+scheme+";action=android.intent.action.VIEW;end";
+      window.location.href=intentUrl;
+      setTimeout(()=>{window.open(url,"_blank");},800);
+      return;
+    }
+    if(isIOS){
+      const safariUrl=url.replace(/^https:\/\//,"x-safari-https://").replace(/^http:\/\//,"x-safari-http://");
+      window.location.href=safariUrl;
+      setTimeout(()=>{window.open(url,"_blank");},800);
+      return;
+    }
+  }catch(err){/* 스킴 이동이 막히면 그냥 일반 링크로 */}
+  window.open(url,"_blank");
+}
+
+/* 텍스트 안의 URL을 자동으로 링크(<a>)로 바꿔주는 헬퍼. esc로 이스케이프한 뒤 URL과 줄바꿈을 처리 */
+function linkify(s){
+  const escaped=esc(s);
+  const urlRe=/((?:https?:\/\/|www\.)[^\s<]+)/gi;
+  return escaped.replace(urlRe,(m)=>{
+    let trail="";
+    while(m.length&&/[.,)\]>!?;:'"]$/.test(m)){
+      trail=m[m.length-1]+trail;
+      m=m.slice(0,-1);
+    }
+    if(!m)return trail;
+    const href=m.startsWith("http")?m:"https://"+m;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="auto-link" onclick="openExternal(event,'${href.replace(/'/g,"\\'")}')">${m}</a>`+trail;
+  });
+}
+function setLinkedText(el,text){
+  el.innerHTML=linkify(text).replace(/\n/g,"<br>");
+}
+function uid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():"id-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,9);}
+function fmtAgo(ts){
+  if(!ts)return "새 가이드";
+  const diff=Date.now()-ts, m=Math.floor(diff/60000);
+  if(m<1)return "방금 전";
+  if(m<60)return m+"분 전";
+  const h=Math.floor(m/60); if(h<24)return h+"시간 전";
+  const d=Math.floor(h/24); if(d<30)return d+"일 전";
+  const mo=Math.floor(d/30); if(mo<12)return mo+"개월 전";
+  return Math.floor(mo/12)+"년 전";
+}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});}
+function fmtDate(ts){
+  if(!ts)return "-";
+  const d=new Date(ts);
+  return d.getFullYear()+"."
+    +String(d.getMonth()+1).padStart(2,"0")+"."
+    +String(d.getDate()).padStart(2,"0")
+    +" "+String(d.getHours()).padStart(2,"0")+":"
+    +String(d.getMinutes()).padStart(2,"0");
+}
+function fmtDateShort(ts){
+  if(!ts)return "-";
+  const d=new Date(ts);
+  const now=new Date();
+  const sameYear=d.getFullYear()===now.getFullYear();
+  if(sameYear)
+    return String(d.getMonth()+1).padStart(2,"0")+"."+String(d.getDate()).padStart(2,"0")
+      +" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  return d.getFullYear()+"."+String(d.getMonth()+1).padStart(2,"0")+"."+String(d.getDate()).padStart(2,"0");
+}
+function toast(msg,type){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className="toast show"+(type==="err"?" err":"");
+  clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove("show"),2600);
+}
+/* 비밀번호 해시 (SHA-256, 평문 비번을 그대로 저장하지 않기 위한 용도) */
+async function hashPw(pw){
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(pw)));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+const PALETTE=["var(--brand2)","var(--gold)","#7f9bff","#ff9f43","#5fd089","#ff5e7e","#37cdbf","#b58cff"];
+function colorFor(id){let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))>>>0;return PALETTE[h%PALETTE.length];}
+const EMOJIS=["📘","🔬","⚔️","🛡️","🏰","👑","💰","🗺️","🎯","🐉","🔥","💎","📦","⭐","🧪","🛠️","📊","🎮"];
+
+function compressImage(file,maxW,quality){
+  maxW=maxW||1400; quality=quality||0.82;
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        const canvas=document.createElement("canvas");
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext("2d");
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL("image/jpeg",quality));
+      };
+      img.onerror=()=>reject(new Error("이미지를 불러오지 못했어요"));
+      img.src=reader.result;
+    };
+    reader.onerror=()=>reject(new Error("파일을 읽지 못했어요"));
+    reader.readAsDataURL(file);
+  });
+}
+function autoGrow(ta){ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px";}
+/* 이미지 개수에 따른 그리드 열 수 (1장이면 크게, 많아지면 촘촘하게) */
+function gridColsFor(n){
+  if(n<=1)return 1;
+  if(n===2)return 2;
+  if(n<=4)return 2;
+  if(n<=6)return 3;
+  if(n<=9)return 3;
+  return 4;
+}
+
+/* ── 정렬: updatedAt 내림차순 (최근 수정/등록이 맨 위) ── */
+function sortGuides(){
+  guides.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  manualGuides.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+}
+
+/* ── 상태 ── */
+let guides=[];
+let currentGuide=null;
+let currentContent=null;
+let saveTimer=null;
+let viewMode="edit";   // "edit" | "read"
+
+function defaultGuide(){
+  return {id:"research",icon:"🔬",title:"연구 올리는 방법",desc:"연구 단계별 진행 순서와 우선순위를 정리해보세요",updatedAt:Date.now(),blockCount:0};
+}
+
+let manualGuides = []; // 수동으로 작성한 가이드 목록 (guides:list)
+
+/* 댓글 수 캐시: {guideId: number} */
+const cmtCountCache = {};
+
+async function loadAllCommentCounts(guideList) {
+  await Promise.all(guideList.map(async g => {
+    try {
+      const list = (await loadJSON("guide:" + g.id + ":comments", true)) || [];
+      cmtCountCache[g.id] = list.length;
+    } catch(e) { cmtCountCache[g.id] = 0; }
+  }));
+}
+
+/* ══════════════════════════════════════════════════════════════
+   다중 선택 삭제
+   ══════════════════════════════════════════════════════════════ */
+let selectMode=false;
+let selectedIds=new Set();
+
+function enterSelectMode(){
+  selectMode=true;
+  selectedIds.clear();
+  document.getElementById("selectBar").classList.add("show");
+  document.querySelector(".toolbar-row").style.display="none";
+  updateSelBar();
+  renderGrid();
+}
+function exitSelectMode(){
+  selectMode=false;
+  selectedIds.clear();
+  document.getElementById("selectBar").classList.remove("show");
+  document.querySelector(".toolbar-row").style.display="";
+  renderGrid();
+}
+function updateSelBar(){
+  document.getElementById("selCount").textContent=selectedIds.size;
+  document.getElementById("selDeleteBtn").disabled=selectedIds.size===0;
+  const total=guides.length;
+  document.getElementById("selAllBtn").textContent=
+    selectedIds.size>0&&selectedIds.size===total?"전체 해제":"전체 선택";
+}
+function toggleSelect(id){
+  if(selectedIds.has(id))selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateSelBar();
+  document.querySelectorAll(".post-row.selectable").forEach(row=>{
+    if(row.dataset.id===id){
+      row.classList.toggle("selected",selectedIds.has(id));
+      const chk=row.querySelector(".post-chk");
+      if(chk)chk.textContent=selectedIds.has(id)?"✓":"";
+    }
+  });
+}
+
+document.getElementById("multiDeleteBtn").onclick=enterSelectMode;
+document.getElementById("selCancelBtn").onclick=exitSelectMode;
+document.getElementById("selAllBtn").onclick=()=>{
+  const selectable=guides.map(g=>g.id);
+  const total=selectable.length;
+  if(selectedIds.size===total){ selectedIds.clear(); }
+  else{ selectable.forEach(id=>selectedIds.add(id)); }
+  updateSelBar();
+  document.querySelectorAll(".post-row.selectable").forEach(row=>{
+    row.classList.toggle("selected",selectedIds.has(row.dataset.id));
+    const chk=row.querySelector(".post-chk");
+    if(chk)chk.textContent=selectedIds.has(row.dataset.id)?"✓":"";
+  });
+};
+
+document.getElementById("selDeleteBtn").onclick=()=>{
+  if(selectedIds.size===0)return;
+  const ids=[...selectedIds];
+  const targets=guides.filter(g=>ids.includes(g.id));
+  const allNoAuthor=targets.every(g=>!g.authorPwHash);
+
+  openPwModal({
+    title:"🗑 선택 삭제 확인 ("+ids.length+"개)",
+    desc: allNoAuthor
+      ? "선택한 게시글에 작성자 정보가 없어요.<br>운영자 비밀번호를 입력해주세요."
+      : "운영자 비밀번호: 선택한 모든 게시글 삭제<br>작성자 비밀번호: 본인이 작성한 게시글만 삭제<br><br>비밀번호를 입력해주세요.",
+    onConfirm: async(pw)=>{
+      const isAdmin=await isAdminPw(pw);
+      let toDelete=[];
+      const actorFor={};
+      if(isAdmin){
+        toDelete=ids;
+        ids.forEach(id=>actorFor[id]="운영자");
+      } else {
+        for(const g of targets){
+          if(await checkAuthorPw(g,pw)){ toDelete.push(g.id); actorFor[g.id]="작성자 본인"; }
+        }
+        if(toDelete.length===0){
+          await logAdminAction("선택 삭제 실패(비번 불일치)",ids.length+"개 게시글","알 수 없음");
+          return false;
+        }
+      }
+
+      for(const id of toDelete){
+        const tg=guides.find(x=>x.id===id);
+        const title=tg?(tg.title||id):id;
+        manualGuides=manualGuides.filter(g=>g.id!==id);
+        await storage.delete("guide:"+id+":content",true);
+        unwatchLock(id);
+        await writeLock(id,null);
+        delete lockState[id];
+        await logAdminAction("게시글 삭제(선택삭제)",title,actorFor[id]||"운영자");
+      }
+      guides=[...manualGuides];
+      sortGuides();
+      await saveJSON("guides:list",manualGuides,true);
+
+      const skipped=ids.length-toDelete.length;
+      exitSelectMode();
+      if(skipped>0)
+        toast(toDelete.length+"개 삭제 완료. "+skipped+"개는 비밀번호 불일치로 건너뜀.");
+      else
+        toast(toDelete.length+"개를 삭제했어요.");
+      return true;
+    }
+  });
+};
+
+/* ── 방문자 카운터 ── */
+async function initVisitorCounter(){
+  const todayKey="visitor:day:"+new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const totalKey="visitor:total";
+  const sessionKey="visited_"+new Date().toISOString().slice(0,10);
+
+  // 이미 오늘 카운트됐으면 스킵 (새로고침마다 중복 카운트 방지)
+  const alreadyCounted=sessionStorage.getItem(sessionKey);
+
+  if(fbdb && !window.storage){
+    // Firebase: 오늘 카운트 + 총 카운트 실시간 구독
+    const todayRef=fbdb.ref("board/"+encodeURIComponent(totalKey.replace("visitor:","v:")));
+    const dayRef=fbdb.ref("board/"+encodeURIComponent(todayKey));
+    const totalRef=fbdb.ref("board/v-total");
+
+    totalRef.on("value",snap=>{
+      const v=snap.exists()?snap.val():0;
+      document.getElementById("visitorTotal").textContent=v.toLocaleString("ko-KR");
+    });
+    dayRef.on("value",snap=>{
+      const v=snap.exists()?snap.val():0;
+      document.getElementById("visitorToday").textContent=v.toLocaleString("ko-KR");
+    });
+    if(!alreadyCounted){
+      sessionStorage.setItem(sessionKey,"1");
+      try{
+        await fbdb.ref("board/v-total").transaction(v=>(v||0)+1);
+        await fbdb.ref("board/"+encodeURIComponent(todayKey)).transaction(v=>(v||0)+1);
+      }catch(e){}
+    }
+  } else {
+    // 로컬 스토리지 폴백
+    let total=parseInt(localStorage.getItem("visitor:total")||"0");
+    let today=parseInt(localStorage.getItem(todayKey)||"0");
+    if(!alreadyCounted){
+      sessionStorage.setItem(sessionKey,"1");
+      total++; today++;
+      localStorage.setItem("visitor:total",total);
+      localStorage.setItem(todayKey,today);
+    }
+    document.getElementById("visitorTotal").textContent=total.toLocaleString("ko-KR");
+    document.getElementById("visitorToday").textContent=today.toLocaleString("ko-KR");
+  }
+}
+
+async function init(){
+  let list = await loadJSON("guides:list", true);
+  if(!list || !Array.isArray(list)) list = [];
+  manualGuides = list;
+
+  guides = [...manualGuides];
+  sortGuides();
+  await loadAllCommentCounts(guides);
+  renderGrid();
+  guides.forEach(g => watchLock(g.id));
+  if(!fbdb || window.storage){
+    startLockPolling(() => guides.map(g => g.id));
+  }
+  lockListeners.add(() => {
+    if(currentGuide) renderLockBadgeDetail();
+    else renderGrid();
+  });
+  initVisitorCounter();
+}
+
+/* ── 목록 화면 (게시판) ── */
+function renderGrid(){
+  const q=(document.getElementById("q").value||"").trim().toLowerCase();
+  const grid=document.getElementById("grid");
+  // 중복 id 제거 (Firebase 중복 push 방어)
+  const seenIds=new Set();
+  const filtered=guides.filter(g=>{
+    if(!q||g.title.toLowerCase().includes(q)||(g.desc||"").toLowerCase().includes(q)){
+      if(seenIds.has(g.id))return false;
+      seenIds.add(g.id);
+      return true;
+    }
+    return false;
+  });
+  grid.innerHTML="";
+  if(filtered.length===0&&q){
+    grid.innerHTML='<div class="empty-state"><div class="ico">🔍</div><p>"'+esc(q)+'"와 일치하는 가이드가 없어요.</p></div>';
+    return;
+  }
+  const board=document.createElement("div");
+  board.className="board";
+
+  const head=document.createElement("div");
+  head.className="board-head";
+  head.innerHTML='<span class="h-title">제목</span><span class="h-meta">작성자</span><span class="h-meta" style="width:108px;text-align:right">작성일 / 수정일</span>';
+  board.appendChild(head);
+
+  filtered.forEach(g=>{
+    const el=document.createElement("div");
+    const lock=getActiveLock(g.id);
+    const isSel=selectMode&&selectedIds.has(g.id);
+
+    if(selectMode){
+      el.className="post-row selectable"+(isSel?" selected":"");
+      el.dataset.id=g.id;
+      el.style.setProperty("--bar",colorFor(g.id));
+      el.innerHTML=
+        '<div class="post-chk">'+( isSel?"✓":"")+'</div>'+
+        '<div class="post-ico">'+esc(g.icon||"📘")+'</div>'+
+        '<div class="post-main">'+
+          '<div class="post-title">'+esc(g.title)+
+            (cmtCountCache[g.id]?'<span class="post-cnt">['+cmtCountCache[g.id]+']</span>':'')+
+          '</div>'+
+          (g.desc?'<div class="post-desc">'+esc(g.desc)+'</div>':'')+
+        '</div>'+
+        '<div class="post-meta">'+esc(g.author||"관리자")+'</div>'+
+        '<div class="post-dates">'+
+          '<div class="date-row"><span class="date-label">등록</span><span>'+fmtDateShort(g.createdAt||g.updatedAt)+'</span></div>'+
+          (g.createdAt&&g.updatedAt&&g.updatedAt!==g.createdAt
+            ?'<div class="date-row"><span class="date-label">수정</span><span class="date-updated">'+fmtDateShort(g.updatedAt)+'</span></div>':'')+
+        '</div>';
+      el.onclick=()=>toggleSelect(g.id);
+    } else {
+      el.className="post-row"+(lock?" locked":"");
+      el.style.setProperty("--bar",colorFor(g.id));
+      el.innerHTML=
+        '<div class="post-ico">'+esc(g.icon||"📘")+'</div>'+
+        '<div class="post-main">'+
+          '<div class="post-title">'+esc(g.title)+
+            (cmtCountCache[g.id]?'<span class="post-cnt">['+cmtCountCache[g.id]+']</span>':'')+
+            (lock?'<span class="lock-badge in-row">🔒 '+esc(lock.nickname)+'님 편집 중</span>':'')+
+          '</div>'+
+          (g.desc?'<div class="post-desc">'+esc(g.desc)+'</div>':'')+
+        '</div>'+
+        '<div class="post-meta">'+esc(g.author||"관리자")+'</div>'+
+        '<div class="post-dates">'+
+          '<div class="date-row"><span class="date-label">등록</span><span>'+fmtDateShort(g.createdAt||g.updatedAt)+'</span></div>'+
+          (g.createdAt&&g.updatedAt&&g.updatedAt!==g.createdAt
+            ?'<div class="date-row"><span class="date-label">수정</span><span class="date-updated">'+fmtDateShort(g.updatedAt)+'</span></div>':'')+
+        '</div>';
+      el.onclick=()=>openGuide(g.id);
+    }
+    board.appendChild(el);
+  });
+
+  // 선택 모드일 땐 "새 가이드 작성" 행 숨김
+  if(selectMode){
+    grid.appendChild(board);
+    return;
+  }
+
+  const write=document.createElement("div");
+  write.className="post-write";
+  write.innerHTML='<span style="font-size:15px">✏️</span> 새 가이드 작성';
+  write.onclick=openNewGuideModal;
+  board.appendChild(write);
+
+  grid.appendChild(board);
+}
+document.getElementById("q").addEventListener("input",renderGrid);
+document.getElementById("addGuideBtn").onclick=openNewGuideModal;
+
+/* ── 새 가이드 모달 ── */
+let ngIcon="📘";
+function buildNgEmojiRow(){
+  const row=document.getElementById("newGuideEmojiRow");
+  row.innerHTML=EMOJIS.map(e=>'<button type="button" class="emoji-opt'+(e===ngIcon?" sel":"")+'" data-e="'+e+'">'+e+'</button>').join("");
+  row.querySelectorAll(".emoji-opt").forEach(b=>{
+    b.onclick=()=>{ngIcon=b.dataset.e;row.querySelectorAll(".emoji-opt").forEach(x=>x.classList.toggle("sel",x===b));};
+  });
+}
+function openNewGuideModal(){
+  ngIcon="📘";
+  document.getElementById("ngTitle").value="";
+  document.getElementById("ngDesc").value="";
+  document.getElementById("ngAuthor").value="";
+  document.getElementById("ngPw").value="";
+  buildNgEmojiRow();
+  document.getElementById("newGuideModal").classList.add("show");
+  setTimeout(()=>document.getElementById("ngTitle").focus(),50);
+}
+function closeNewGuideModal(){document.getElementById("newGuideModal").classList.remove("show");}
+document.getElementById("newGuideClose").onclick=closeNewGuideModal;
+document.getElementById("newGuideModal").onclick=e=>{if(e.target.id==="newGuideModal")closeNewGuideModal();};
+document.getElementById("ngCreateBtn").onclick=async()=>{
+  const title=document.getElementById("ngTitle").value.trim();
+  if(!title){toast("제목을 입력해주세요.","err");return;}
+  const author=document.getElementById("ngAuthor").value.trim();
+  const pw=document.getElementById("ngPw").value;
+  if(!author){toast("작성자 이름을 입력해주세요.","err");return;}
+  if(!pw){toast("수정·삭제에 쓸 비밀번호를 입력해주세요.","err");return;}
+  const authorPwHash=await hashPw(pw);
+  const now=Date.now();
+  const g={id:uid(),icon:ngIcon,title,desc:document.getElementById("ngDesc").value.trim(),
+    author,authorPwHash,createdAt:now,updatedAt:now,blockCount:0};
+  manualGuides.push(g);
+  guides=[...manualGuides];
+  sortGuides();
+  watchLock(g.id);
+  await saveJSON("guides:list",manualGuides,true);
+  closeNewGuideModal();
+  openGuide(g.id,true,author);
+};
+
+/* ── 상세/편집 화면 ── */
+async function openGuide(id,startInEdit,autoNickname){
+  currentGuide=guides.find(g=>g.id===id);
+  if(!currentGuide)return;
+  document.getElementById("gridView").classList.add("hidden-view");
+  document.getElementById("detailView").classList.add("active-view");
+  document.getElementById("detailView").classList.remove("hidden-view");
+  window.scrollTo(0,0);
+  setSaveIndicator("불러오는 중…","saving");
+  // 새 글을 여는 것이므로 이전 글에서 쓰던 게시글 내 검색어/결과는 초기화
+  psTerm=""; psMatches=[]; psIndex=-1;
+  const psInput=document.getElementById("postSearchInput");
+  if(psInput)psInput.value="";
+  const psCountEl=document.getElementById("postSearchCount");
+  if(psCountEl){psCountEl.textContent="";psCountEl.className="ps-count";}
+  let content=await loadJSON("guide:"+id+":content",true);
+  if(!content||!content.blocksOrder)content={blocksOrder:[],blocks:{}};
+  currentContent=content;
+
+  watchLock(id);
+  const lock=await readLock(id);
+  lockState[id]=lock;
+
+  document.getElementById("viewToggleBtn").style.display="";
+  document.getElementById("deleteGuideBtn").style.display="";
+
+  if(startInEdit){
+    const res=await tryAcquireLock(id,autoNickname||"작성자");
+    setViewMode(res.ok?"edit":"read");
+    if(!res.ok)toast("다른 사람이 편집 중이라 보기 모드로 열었어요.","err");
+  }else{
+    setViewMode("read");
+  }
+  renderDetail();
+  setSaveIndicator("모두 저장됨","saved");
+  // 읽기 모드 진입 시 댓글 섹션 표시 (편집 모드엔 숨김)
+  if(viewMode==="read") showCommentSection(id);
+  else hideCommentSection();
+}
+async function backToGrid(){
+  document.getElementById("deleteGuideBtn").style.display="";
+  document.getElementById("viewToggleBtn").style.display="";
+  if(myLockGuideId)await releaseLock(myLockGuideId);
+  if(currentGuide)unwatchLock(currentGuide.id);
+  hideCommentSection();
+  document.getElementById("detailView").classList.remove("active-view");
+  document.getElementById("detailView").classList.add("hidden-view");
+  document.getElementById("gridView").classList.remove("hidden-view");
+  document.getElementById("emojiPop").hidden=true;
+  currentGuide=null; currentContent=null;
+  renderGrid();
+}
+document.getElementById("backBtn").onclick=backToGrid;
+
+/* ── 상세 화면 락 배지 표시 ── */
+function renderLockBadgeDetail(){
+  if(!currentGuide)return;
+  const lock=getActiveLock(currentGuide.id);
+  const badge=document.getElementById("lockBadge");
+  const iAmOwner=lock&&lock.clientId===CLIENT_ID;
+  // 내가 편집 중이면 배지 숨김, 남이 편집 중이면 배지 표시
+  if(lock&&!iAmOwner){
+    badge.hidden=false;
+    badge.textContent="🔒 "+lock.nickname+"님 편집 중";
+  }else{
+    badge.hidden=true;
+  }
+  const toggleBtn=document.getElementById("viewToggleBtn");
+  if(toggleBtn){
+    // 보기 모드에서 + 내 락이 아닌 다른 사람 락이 있을 때만 비활성화
+    const blocked=viewMode==="read"&&!!lock&&!iAmOwner;
+    toggleBtn.classList.toggle("is-locked",blocked);
+    // pointer-events도 막아서 CSS hover 효과까지 차단
+    toggleBtn.style.pointerEvents=blocked?"none":"";
+    toggleBtn.title=blocked?"다른 사람이 편집 중이라 지금은 수정할 수 없어요":"";
+  }
+}
+
+/* ── 보기 ↔ 편집 토글 ── */
+function setViewMode(m){
+  viewMode=m;
+  const dv=document.getElementById("detailView");
+  dv.classList.toggle("reading",m==="read");
+  const ti=document.getElementById("dTitle"), de=document.getElementById("dDesc");
+  ti.readOnly=de.readOnly=(m==="read");
+  document.getElementById("iconBtn").title=(m==="read")?"":"아이콘 변경";
+  const btn=document.getElementById("viewToggleBtn");
+  if(btn)btn.textContent=(m==="read")?"✏️ 편집하기":"👁 게시글 보기";
+  renderLockBadgeDetail();
+  // 편집 모드로 들어가면 게시글 검색은 의미가 없으므로 초기화
+  if(m!=="read"){
+    psTerm=""; psMatches=[]; psIndex=-1;
+    const psInput=document.getElementById("postSearchInput");
+    if(psInput)psInput.value="";
+    const countEl=document.getElementById("postSearchCount");
+    if(countEl){countEl.textContent="";countEl.className="ps-count";}
+  }
+  // 읽기 ↔ 편집 전환 시 댓글 섹션 토글
+  if(m==="read" && currentGuide) showCommentSection(currentGuide.id);
+  else hideCommentSection();
+}
+
+function renderDetail(){
+  document.getElementById("iconBtn").textContent=currentGuide.icon||"📘";
+  document.getElementById("dTitle").value=currentGuide.title||"";
+  document.getElementById("dDesc").value=currentGuide.desc||"";
+  document.getElementById("dAuthor").textContent=currentGuide.author?("✍️ "+currentGuide.author):"✍️ 관리자 작성";
+  // 날짜 메타
+  const dm=document.getElementById("dDateMeta");
+  const created=currentGuide.createdAt||currentGuide.updatedAt;
+  const updated=currentGuide.updatedAt;
+  let html='<span class="dmeta-item"><span class="dmeta-label">📅 작성</span> '+fmtDate(created)+'</span>';
+  if(updated&&created&&updated!==created){
+    html+='<span class="dmeta-item"><span class="dmeta-label">✏️ 수정</span> <span class="dmeta-updated">'+fmtDate(updated)+'</span></span>';
+  }
+  dm.innerHTML=html;
+  renderBlocks();
+  updateCapHint();
+}
+function renderBlocks(){
+  const wrap=document.getElementById("blocksWrap");
+  wrap.innerHTML="";
+  const order=currentContent.blocksOrder;
+  document.getElementById("blocksEmpty").hidden=order.length>0||viewMode==="read";
+
+  // ── 보기 모드: 연속 이미지를 비율 유지 갤러리로 묶어서 렌더 ──
+  if(viewMode==="read"){
+    let i=0;
+    while(i<order.length){
+      const b=currentContent.blocks[order[i]];
+      if(!b){i++;continue;}
+      if(b.type==="text"){
+        if(b.text&&b.text.trim()){
+          const lines=b.text.trim().split("\n").filter(l=>l.trim());
+          const container=document.createElement("div");
+
+          // tableMode 플래그가 있거나 줄이 5개 이상이면 표로 표시
+          if(b.tableMode || lines.length>=5){
+            let isTable=true;
+            const toggleBtn=document.createElement("button");
+            toggleBtn.className="table-toggle-btn";
+            toggleBtn.textContent="📝 목록 형식으로 보기";
+            container.appendChild(toggleBtn);
+
+            const textDiv=document.createElement("div");
+            textDiv.className="read-text"; setLinkedText(textDiv,b.text);
+            textDiv.style.display="none";
+            container.appendChild(textDiv);
+
+            const tableWrap=document.createElement("div");
+            tableWrap.className="read-table-wrap";
+            const table=document.createElement("table");
+            table.className="read-table";
+            const thead=document.createElement("thead");
+            thead.innerHTML=`<tr><th>번호</th><th>${esc(b.colLabel||"닉네임")}</th></tr>`;
+            const tbody=document.createElement("tbody");
+            lines.forEach((line,idx)=>{
+              const tr=document.createElement("tr");
+              tr.innerHTML=`<td>${idx+1}</td><td>${linkify(line.trim())}</td>`;
+              tbody.appendChild(tr);
+            });
+            table.appendChild(thead); table.appendChild(tbody);
+            tableWrap.appendChild(table);
+            container.appendChild(tableWrap);
+
+            toggleBtn.onclick=()=>{
+              isTable=!isTable;
+              textDiv.style.display=isTable?"none":"";
+              tableWrap.style.display=isTable?"":"none";
+              toggleBtn.textContent=isTable?"📝 목록 형식으로 보기":"📊 표 형식으로 보기";
+              applyPostSearch();
+            };
+          } else {
+            const p=document.createElement("div");
+            p.className="read-text"; setLinkedText(p,b.text);
+            container.appendChild(p);
+          }
+          wrap.appendChild(container);
+        }
+        i++;
+      }else if(b.type==="image"){
+        // 연속된 이미지 블록 수집
+        const imgGroup=[];
+        while(i<order.length&&currentContent.blocks[order[i]]&&currentContent.blocks[order[i]].type==="image"){
+          imgGroup.push(currentContent.blocks[order[i]]);
+          i++;
+        }
+        const fig=document.createElement("figure");
+        fig.className="read-fig";
+        const grid=document.createElement("div");
+        grid.className="read-img-grid"+(imgGroup.length===1?" single":"");
+        const srcList=imgGroup.map(b=>b.img);
+        imgGroup.forEach((imgBlock,idx)=>{
+          const item=document.createElement("div");
+          item.className="read-img-grid-item";
+          const im=document.createElement("img");
+          im.src=imgBlock.img; im.alt=imgBlock.caption||"스크린샷";
+          im.loading="lazy";
+          im.onclick=()=>openLightbox(imgBlock.img,srcList,idx);
+          const hint=document.createElement("span");
+          hint.className="zoom-hint"; hint.textContent="🔍 확대";
+          item.appendChild(im); item.appendChild(hint); grid.appendChild(item);
+        });
+        fig.appendChild(grid);
+        // 마지막 이미지의 캡션만 대표로 표시
+        const lastCap=imgGroup[imgGroup.length-1].caption;
+        if(lastCap&&lastCap.trim()){
+          const cap=document.createElement("figcaption");
+          cap.className="read-cap"; cap.textContent=lastCap;
+          fig.appendChild(cap);
+        }
+        wrap.appendChild(fig);
+      }else if(b.type==="spacer"){
+        const sp=document.createElement("div");
+        sp.style.cssText="height:1px;margin:18px 0;background:rgba(20,30,70,.12)";
+        wrap.appendChild(sp);
+        i++;
+      }else{i++;}
+    }
+    applyPostSearch();
+    return;
+  }
+
+  // ── 편집 모드: 연속 이미지를 하나의 img-group-blk 로 묶어서 렌더 ──
+  // 먼저 [텍스트 | 이미지묶음] 단위로 그룹화
+  const renderGroups=[];
+  let gi=0;
+  while(gi<order.length){
+    const b=currentContent.blocks[order[gi]];
+    if(!b){gi++;continue;}
+    if(b.type==="text"){
+      renderGroups.push({type:"text",id:order[gi],block:b,idx:gi});
+      gi++;
+    }else if(b.type==="image"){
+      const ids=[], blocks=[];
+      while(gi<order.length&&currentContent.blocks[order[gi]]&&currentContent.blocks[order[gi]].type==="image"){
+        ids.push(order[gi]); blocks.push(currentContent.blocks[order[gi]]); gi++;
+      }
+      renderGroups.push({type:"imageGroup",ids,blocks});
+    }else{gi++;}
+  }
+
+  renderGroups.forEach((grp,grpIdx)=>{
+    if(grp.type==="text"){
+      const el=document.createElement("div");
+      el.className="blk";
+      const idx=grp.idx;
+      const ctrl='<div class="blk-ctrl">'+
+        (idx>0?'<button type="button" class="blk-btn" data-act="up" title="위로">▲</button>':"")+
+        (idx<order.length-1?'<button type="button" class="blk-btn" data-act="down" title="아래로">▼</button>':"")+
+        '<button type="button" class="blk-btn danger" data-act="del" title="삭제">🗑</button></div>';
+      el.innerHTML=ctrl;
+
+      // 표/텍스트 모드 토글 버튼
+      const modeBtn=document.createElement("button");
+      modeBtn.type="button"; modeBtn.className="table-toggle-btn";
+      const isTableMode=()=>!!grp.block.tableMode;
+      modeBtn.textContent=isTableMode()?"📝 텍스트로 전환":"📊 표 형식으로 전환";
+      el.appendChild(modeBtn);
+
+      // ── 텍스트 모드 ──
+      const textArea=document.createElement("textarea");
+      textArea.className="blk-text";
+      textArea.placeholder="내용을 입력하세요…";
+      textArea.value=grp.block.text||"";
+      textArea.style.display=isTableMode()?"none":"";
+      textArea.oninput=()=>{grp.block.text=textArea.value;autoGrow(textArea);updateCapHint();scheduleSave();};
+      el.appendChild(textArea);
+      autoGrow(textArea);
+
+      // ── 표 모드 ──
+      const tableWrap=document.createElement("div");
+      tableWrap.className="edit-table-wrap";
+      tableWrap.style.display=isTableMode()?"":"none";
+      const colLabel=grp.block.colLabel||"닉네임";
+      tableWrap.innerHTML=`
+        <table class="read-table edit-table">
+          <thead><tr><th style="width:52px">번호</th><th><input class="col-label-input" type="text" value="${esc(colLabel)}" placeholder="열 제목" style="width:100%;background:transparent;border:none;outline:none;color:var(--brand2);font-size:12px;font-weight:700;text-align:center;letter-spacing:.04em"></th><th style="width:36px"></th></tr></thead>
+          <tbody class="edit-tbody"></tbody>
+        </table>
+        <button type="button" class="edit-add-row-btn">+ 줄 추가</button>
+      `;
+      el.appendChild(tableWrap);
+      tableWrap.querySelector(".col-label-input").oninput=e=>{grp.block.colLabel=e.target.value;scheduleSave();};
+
+      const tbody=tableWrap.querySelector(".edit-tbody");
+      const addRowBtn=tableWrap.querySelector(".edit-add-row-btn");
+
+      function getLines(){return (grp.block.text||"").split("\n").filter(l=>l.trim());}
+      function saveLines(){
+        const inputs=[...tbody.querySelectorAll("input.edit-row-input")];
+        grp.block.text=inputs.map(i=>i.value).join("\n");
+        scheduleSave(); updateCapHint();
+      }
+      function addRow(value,rowIdx){
+        const allRows=[...tbody.querySelectorAll("tr")];
+        const rowNum=(rowIdx!=null?rowIdx:allRows.length)+1;
+        const tr=document.createElement("tr");
+        tr.innerHTML=`
+          <td style="text-align:center;color:var(--dim);white-space:nowrap">${rowNum}</td>
+          <td><input class="edit-row-input" type="text" value="${esc(value||"")}" placeholder="닉네임 입력" style="width:100%;background:transparent;border:none;outline:none;color:var(--tx);font-size:13.5px;padding:2px 4px"></td>
+          <td><button type="button" class="blk-btn danger del-row-btn" style="padding:2px 7px;font-size:11px" title="삭제">✕</button></td>
+        `;
+        tr.querySelector(".edit-row-input").oninput=()=>{saveLines(); renumberRows();};
+        tr.querySelector(".del-row-btn").onclick=()=>{tr.remove(); saveLines(); renumberRows();};
+        tbody.appendChild(tr);
+      }
+      function renumberRows(){
+        tbody.querySelectorAll("tr").forEach((tr,i)=>{
+          tr.querySelector("td:first-child").textContent=i+1;
+        });
+      }
+      function renderRows(){
+        tbody.innerHTML="";
+        const lines=getLines();
+        (lines.length?lines:[""]).forEach((line,i)=>addRow(line,i));
+      }
+      addRowBtn.onclick=()=>{addRow("",null); renumberRows(); saveLines(); tbody.querySelector("tr:last-child input")&&tbody.querySelector("tr:last-child input").focus();};
+      if(isTableMode()) renderRows();
+
+      // 모드 전환
+      modeBtn.onclick=()=>{
+        grp.block.tableMode=!grp.block.tableMode;
+        if(grp.block.tableMode){
+          textArea.style.display="none";
+          tableWrap.style.display="";
+          modeBtn.textContent="📝 텍스트로 전환";
+          renderRows();
+        } else {
+          tableWrap.style.display="none";
+          textArea.style.display="";
+          modeBtn.textContent="📊 표 형식으로 전환";
+          autoGrow(textArea);
+        }
+        scheduleSave();
+      };
+
+      el.querySelectorAll(".blk-ctrl .blk-btn").forEach(btn=>{
+        btn.onclick=()=>{
+          const act=btn.dataset.act;
+          if(act==="up")moveBlock(grp.id,-1);
+          else if(act==="down")moveBlock(grp.id,1);
+          else if(act==="del")deleteBlock(grp.id);
+        };
+      });
+      wrap.appendChild(el);
+    }else if(grp.type==="imageGroup"){
+      const el=document.createElement("div");
+      el.className="img-group-blk";
+
+      // 그룹 제어 버튼
+      const ctrl=document.createElement("div");
+      ctrl.className="blk-ctrl";
+      const delAllBtn=document.createElement("button");
+      delAllBtn.type="button"; delAllBtn.className="blk-btn danger";
+      delAllBtn.title="그룹 전체 삭제"; delAllBtn.textContent="🗑";
+      delAllBtn.onclick=()=>{
+        if(!confirm("이 스크린샷 묶음을 모두 삭제할까요?"))return;
+        grp.ids.forEach(id=>{
+          currentContent.blocksOrder=currentContent.blocksOrder.filter(x=>x!==id);
+          delete currentContent.blocks[id];
+        });
+        renderBlocks(); updateCapHint(); scheduleSave();
+      };
+      ctrl.appendChild(delAllBtn);
+      el.appendChild(ctrl);
+
+      // 이미지 그리드
+      const grid=document.createElement("div");
+      grid.className="img-grid";
+
+      const renderGridItems=()=>{
+        grid.innerHTML="";
+        const cols=gridColsFor(grp.ids.length+1); // +버튼 한 칸도 포함해서 레이아웃 계산
+        grid.style.gridTemplateColumns="repeat("+cols+",1fr)";
+        grid.style.maxWidth=cols<=2?"420px":(cols===3?"620px":"");
+        grp.ids.forEach((imgId,ii)=>{
+          const imgBlock=currentContent.blocks[imgId];
+          if(!imgBlock)return;
+          const item=document.createElement("div");
+          item.className="img-grid-item";
+          const im=document.createElement("img");
+          im.src=imgBlock.img; im.alt=imgBlock.caption||"스크린샷";
+          im.onclick=()=>openLightbox(imgBlock.img);
+          // 개별 삭제 버튼
+          const delBtn=document.createElement("button");
+          delBtn.type="button"; delBtn.className="del-img"; delBtn.title="이 이미지 삭제"; delBtn.textContent="✕";
+          delBtn.onclick=e=>{
+            e.stopPropagation();
+            currentContent.blocksOrder=currentContent.blocksOrder.filter(x=>x!==imgId);
+            delete currentContent.blocks[imgId];
+            renderBlocks(); updateCapHint(); scheduleSave();
+          };
+          item.appendChild(im); item.appendChild(delBtn); grid.appendChild(item);
+        });
+        // + 추가 버튼
+        const addBtn=document.createElement("button");
+        addBtn.type="button"; addBtn.className="img-grid-add"; addBtn.title="스크린샷 추가"; addBtn.textContent="+";
+        addBtn.onclick=()=>{
+          // 파일 선택 후 이 그룹 바로 뒤에 삽입
+          const fi=document.createElement("input");
+          fi.type="file"; fi.accept="image/*"; fi.multiple=true;
+          fi.onchange=async()=>{
+            const files=[...fi.files].filter(f=>f.type.startsWith("image/"));
+            for(const f of files){
+              try{
+                const dataUrl=await compressImage(f);
+                if(contentSize()+dataUrl.length>4.5*1024*1024){toast("저장 용량이 가득 찼어요.","err");break;}
+                const nid=uid();
+                // 이 그룹의 마지막 id 다음 위치에 삽입
+                const lastIdx=currentContent.blocksOrder.indexOf(grp.ids[grp.ids.length-1]);
+                currentContent.blocksOrder.splice(lastIdx+1,0,nid);
+                currentContent.blocks[nid]={type:"image",img:dataUrl,caption:"",size:"lg"};
+                grp.ids.push(nid); grp.blocks.push(currentContent.blocks[nid]);
+              }catch(e){toast("이미지를 처리하지 못했어요.","err");}
+            }
+            renderGridItems(); updateCapHint(); scheduleSave();
+          };
+          fi.click();
+        };
+        grid.appendChild(addBtn);
+      };
+      renderGridItems();
+      el.appendChild(grid);
+
+      // 대표 캡션 (첫 번째 이미지의 caption 사용)
+      const capInp=document.createElement("input");
+      capInp.className="img-group-caption";
+      capInp.placeholder="스크린샷 묶음 설명 (선택)";
+      capInp.value=grp.blocks[0]?grp.blocks[0].caption||"":"";
+      capInp.oninput=e=>{
+        if(grp.blocks[0])grp.blocks[0].caption=e.target.value;
+        scheduleSave();
+      };
+      el.appendChild(capInp);
+      wrap.appendChild(el);
+    }
+  });
+  // 렌더 후 모든 텍스트 블록 높이 자동 맞춤
+  requestAnimationFrame(()=>{
+  });
+}
+
+/* ── 게시글 내 검색 (보기 모드에서 텍스트/표 내용을 하이라이트하고 결과 사이를 이동) ── */
+let psTerm="";
+let psMatches=[];
+let psIndex=-1;
+function escRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");}
+// 텍스트 노드만 골라서 검색어를 <mark>로 감싸 하이라이트
+function highlightNode(root,term){
+  if(!term)return;
+  const re=new RegExp(escRegExp(term),"gi");
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+    acceptNode(node){
+      if(!node.nodeValue||!node.nodeValue.trim())return NodeFilter.FILTER_REJECT;
+      const p=node.parentElement;
+      if(p&&(p.tagName==="MARK"||p.closest("mark")))return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes=[];
+  let n;
+  while((n=walker.nextNode()))nodes.push(n);
+  nodes.forEach(textNode=>{
+    const text=textNode.nodeValue;
+    if(!re.test(text)){re.lastIndex=0;return;}
+    re.lastIndex=0;
+    const frag=document.createDocumentFragment();
+    let last=0,m;
+    while((m=re.exec(text))){
+      if(m.index>last)frag.appendChild(document.createTextNode(text.slice(last,m.index)));
+      const mark=document.createElement("mark");
+      mark.className="ps-hit";
+      mark.textContent=m[0];
+      frag.appendChild(mark);
+      last=m.index+m[0].length;
+      if(m[0].length===0)re.lastIndex++;
+    }
+    if(last<text.length)frag.appendChild(document.createTextNode(text.slice(last)));
+    textNode.parentNode.replaceChild(frag,textNode);
+  });
+}
+function clearPostSearchHighlights(){
+  document.querySelectorAll("#blocksWrap mark.ps-hit").forEach(mark=>{
+    const parent=mark.parentNode;
+    if(!parent)return;
+    parent.replaceChild(document.createTextNode(mark.textContent),mark);
+    parent.normalize();
+  });
+  psMatches=[]; psIndex=-1;
+}
+function updatePostSearchCount(){
+  const countEl=document.getElementById("postSearchCount");
+  if(!countEl)return;
+  if(!psTerm){countEl.textContent="";countEl.className="ps-count";return;}
+  if(psMatches.length===0){
+    countEl.textContent="일치 결과 없음";
+    countEl.className="ps-count no-match";
+  }else{
+    countEl.textContent=(psIndex+1)+" / "+psMatches.length;
+    countEl.className="ps-count has-match";
+  }
+  const prevBtn=document.getElementById("postSearchPrev");
+  const nextBtn=document.getElementById("postSearchNext");
+  if(prevBtn)prevBtn.disabled=psMatches.length===0;
+  if(nextBtn)nextBtn.disabled=psMatches.length===0;
+}
+function setActivePostSearchMatch(i){
+  if(psMatches.length===0)return;
+  if(psIndex>=0&&psMatches[psIndex])psMatches[psIndex].classList.remove("ps-active");
+  psIndex=((i%psMatches.length)+psMatches.length)%psMatches.length;
+  const el=psMatches[psIndex];
+  if(el){
+    el.classList.add("ps-active");
+    el.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  updatePostSearchCount();
+}
+// renderBlocks가 보기 모드로 다시 그려질 때마다 호출되어 현재 검색어로 하이라이트를 재적용
+function applyPostSearch(){
+  clearPostSearchHighlights();
+  if(viewMode!=="read"||!psTerm)return;
+  const wrap=document.getElementById("blocksWrap");
+  if(!wrap)return;
+  // 표/목록 토글로 숨겨진(display:none) 콘텐츠는 건너뛰고, 화면에 보이는 콘텐츠만 검색
+  function isHiddenByInlineStyle(el){
+    let cur=el;
+    while(cur&&cur!==wrap){
+      if(cur.style&&cur.style.display==="none")return true;
+      cur=cur.parentElement;
+    }
+    return false;
+  }
+  wrap.querySelectorAll(".read-text, .read-table td").forEach(el=>{
+    if(isHiddenByInlineStyle(el))return;
+    highlightNode(el,psTerm);
+  });
+  psMatches=[...wrap.querySelectorAll("mark.ps-hit")];
+  updatePostSearchCount();
+  if(psMatches.length>0)setActivePostSearchMatch(0);
+}
+function runPostSearch(term){
+  psTerm=term.trim();
+  applyPostSearch();
+}
+let psDebounce=null;
+(function initPostSearchUI(){
+  const input=document.getElementById("postSearchInput");
+  const prevBtn=document.getElementById("postSearchPrev");
+  const nextBtn=document.getElementById("postSearchNext");
+  const clearBtn=document.getElementById("postSearchClear");
+  if(!input)return;
+  input.addEventListener("input",()=>{
+    clearTimeout(psDebounce);
+    psDebounce=setTimeout(()=>runPostSearch(input.value),150);
+  });
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      e.preventDefault();
+      if(psMatches.length>0)setActivePostSearchMatch(psIndex+(e.shiftKey?-1:1));
+    }else if(e.key==="Escape"){
+      input.value=""; runPostSearch("");
+    }
+  });
+  prevBtn.onclick=()=>{if(psMatches.length>0)setActivePostSearchMatch(psIndex-1);};
+  nextBtn.onclick=()=>{if(psMatches.length>0)setActivePostSearchMatch(psIndex+1);};
+  clearBtn.onclick=()=>{input.value=""; runPostSearch(""); input.focus();};
+})();
+
+function moveBlock(id,dir){
+  const order=currentContent.blocksOrder;
+  const i=order.indexOf(id), j=i+dir;
+  if(j<0||j>=order.length)return;
+  const tmp=order[i]; order[i]=order[j]; order[j]=tmp;
+  renderBlocks(); scheduleSave();
+}
+function deleteBlock(id){
+  if(!confirm("이 항목을 삭제할까요?"))return;
+  currentContent.blocksOrder=currentContent.blocksOrder.filter(x=>x!==id);
+  delete currentContent.blocks[id];
+  renderBlocks(); updateCapHint(); scheduleSave();
+}
+function addTextBlock(){
+  const id=uid();
+  currentContent.blocksOrder.push(id);
+  currentContent.blocks[id]={type:"text",text:""};
+  renderBlocks(); scheduleSave();
+  // 방금 추가한 텍스트 블록의 textarea에 포커스
+  const tas=document.querySelectorAll("#blocksWrap .blk-text");
+  const last=tas[tas.length-1];
+  if(last){last.focus();last.scrollIntoView({behavior:"smooth",block:"center"});}
+}
+document.getElementById("addTextBtn").onclick=addTextBlock;
+document.getElementById("addImgBtn").onclick=()=>document.getElementById("fileInput").click();
+
+/* 파일·붙여넣기·드롭에서 공통으로 쓰는 이미지 추가 함수 */
+async function addImages(fileList){
+  const files=[...fileList].filter(f=>f&&f.type&&f.type.startsWith("image/"));
+  if(!files.length)return;
+  toast("스크린샷 "+files.length+"개 처리 중…");
+  let added=0;
+  for(const f of files){
+    try{
+      const dataUrl=await compressImage(f);
+      if(contentSize()+dataUrl.length>4.5*1024*1024){
+        toast("저장 용량이 가득 찼어요. 스크린샷을 정리하거나 새 가이드로 나눠주세요.","err");
+        break;
+      }
+      const id=uid();
+      currentContent.blocksOrder.push(id);
+      currentContent.blocks[id]={type:"image",img:dataUrl,caption:"",size:"lg"};
+      renderBlocks(); updateCapHint();
+      added++;
+    }catch(err){
+      toast("이미지를 처리하지 못했어요.","err");
+    }
+  }
+  if(added){
+    scheduleSave();
+    toast("스크린샷 "+added+"개를 추가했어요.");
+    // 방금 추가한 마지막 이미지로 부드럽게 스크롤
+    const imgs=document.querySelectorAll("#blocksWrap .blk-img");
+    if(imgs.length)imgs[imgs.length-1].scrollIntoView({behavior:"smooth",block:"center"});
+  }
+}
+
+document.getElementById("fileInput").onchange=e=>{
+  const files=[...e.target.files];
+  e.target.value="";
+  addImages(files);
+};
+
+/* ── Ctrl+V 붙여넣기로 스크린샷 추가 ── */
+document.addEventListener("paste",e=>{
+  // 상세 편집 화면에서만 동작 (보기 모드 제외)
+  if(!document.getElementById("detailView").classList.contains("active-view")||!currentGuide||viewMode!=="edit")return;
+  const cd=e.clipboardData||window.clipboardData;
+  if(!cd)return;
+  const imgs=[];
+  // 1) 파일 형태의 이미지(스크린샷 캡처 등)
+  if(cd.items){
+    for(const it of cd.items){
+      if(it.kind==="file"&&it.type&&it.type.startsWith("image/")){
+        const f=it.getAsFile();
+        if(f)imgs.push(f);
+      }
+    }
+  }
+  // 2) 일부 브라우저는 files에만 담기도 함
+  if(!imgs.length&&cd.files&&cd.files.length){
+    for(const f of cd.files){ if(f.type&&f.type.startsWith("image/"))imgs.push(f); }
+  }
+  if(imgs.length){
+    e.preventDefault();        // 이미지가 있을 때만 기본 붙여넣기 차단
+    flashPaste();
+    addImages(imgs);
+  }
+  // 이미지가 없으면(텍스트 등) 기본 붙여넣기 동작을 그대로 둠
+});
+
+/* ── 드래그&드롭으로 스크린샷 추가 ── */
+const pasteFlash=document.getElementById("pasteFlash");
+let dragDepth=0;
+function flashPaste(){
+  pasteFlash.classList.add("show");
+  clearTimeout(pasteFlash._tm);
+  pasteFlash._tm=setTimeout(()=>pasteFlash.classList.remove("show"),450);
+}
+function inEditView(){return document.getElementById("detailView").classList.contains("active-view")&&currentGuide&&viewMode==="edit";}
+window.addEventListener("dragenter",e=>{
+  if(!inEditView())return;
+  if(![...(e.dataTransfer?.types||[])].includes("Files"))return;
+  e.preventDefault(); dragDepth++; pasteFlash.classList.add("show");
+});
+window.addEventListener("dragover",e=>{
+  if(!inEditView())return;
+  if([...(e.dataTransfer?.types||[])].includes("Files"))e.preventDefault();
+});
+window.addEventListener("dragleave",e=>{
+  if(!inEditView())return;
+  dragDepth=Math.max(0,dragDepth-1);
+  if(dragDepth===0)pasteFlash.classList.remove("show");
+});
+window.addEventListener("drop",e=>{
+  if(!inEditView())return;
+  if(!(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length))return;
+  e.preventDefault();
+  dragDepth=0; pasteFlash.classList.remove("show");
+  addImages(e.dataTransfer.files);
+});
+
+document.getElementById("dTitle").oninput=e=>{currentGuide.title=e.target.value||"(제목 없음)";scheduleSave();};
+document.getElementById("dDesc").oninput=e=>{currentGuide.desc=e.target.value;scheduleSave();};
+
+/* 아이콘 변경 팝오버 */
+function buildEmojiPop(){
+  const pop=document.getElementById("emojiPop");
+  pop.innerHTML=EMOJIS.map(e=>'<button type="button" class="emoji-opt" data-e="'+e+'">'+e+'</button>').join("");
+  pop.querySelectorAll(".emoji-opt").forEach(b=>{
+    b.onclick=()=>{
+      currentGuide.icon=b.dataset.e;
+      document.getElementById("iconBtn").textContent=b.dataset.e;
+      pop.hidden=true;
+      scheduleSave();
+    };
+  });
+}
+buildEmojiPop();
+document.getElementById("iconBtn").onclick=e=>{
+  e.stopPropagation();
+  document.getElementById("emojiPop").hidden=!document.getElementById("emojiPop").hidden;
+};
+document.addEventListener("click",e=>{
+  const pop=document.getElementById("emojiPop");
+  if(!pop.hidden&&!pop.contains(e.target)&&e.target.id!=="iconBtn")pop.hidden=true;
+});
+
+/* ── 비밀번호 확인 모달 (범용: 삭제/수정 공용) ──
+   onConfirm(pw)은 입력된 평문 비밀번호를 받아 true/false(또는 Promise<boolean>)를 반환해야 함.
+   true를 반환하면 모달을 닫고, false면 "비밀번호가 틀렸어요" 에러를 보여줌. */
+/* 관리자 비밀번호는 해시로만 비교해 소스코드에 평문이 노출되지 않도록 합니다.
+   변경이 필요하면 새 비밀번호의 SHA-256 해시값으로 교체하세요. */
+/* 처음 설정된 '마스터 비밀번호'의 해시. 절대 바뀌지 않으며, 오직 아래 '비밀번호 변경' 기능에
+   들어갈 때 본인 확인용으로만 쓰인다. (포인트/삭제로그 등에서 쓰는 실제 운영 비밀번호와는 별개) */
+const MASTER_PW_HASH="39acb5b404d4d737a3cb54f9daa0b91f2e7e41425613a1754ca492420de1842f";
+/* 포인트 페이지·삭제 로그 등에서 실제로 쓰이는 운영 비밀번호. 기본값은 마스터 비밀번호와 같지만,
+   '비밀번호 변경' 기능으로 바꾸면 이 값만 바뀌고 위 MASTER_PW_HASH는 그대로 유지된다. */
+let ADMIN_PW_HASH=MASTER_PW_HASH;
+/* 운영자가 '비밀번호 변경'으로 바꾼 값이 있으면 공유 저장소에서 불러와 위 기본값 대신 사용 */
+(async()=>{
+  try{
+    const saved=await storage.get("admin:pwhash",true);
+    if(saved && saved.value) ADMIN_PW_HASH=saved.value;
+  }catch(e){ console.warn("저장된 관리자 비밀번호 불러오기 실패:",e); }
+})();
+let pwModalOnConfirm=null;
+
+function openPwModal({title,desc,onConfirm}){
+  document.getElementById("pwModalTitle").textContent=title||"🔒 비밀번호 확인";
+  document.getElementById("pwModalDesc").innerHTML=desc||"비밀번호를 입력해주세요.";
+  document.getElementById("adminPw").value="";
+  document.getElementById("adminErr").style.display="none";
+  pwModalOnConfirm=onConfirm;
+  document.getElementById("adminModal").classList.add("show");
+  setTimeout(()=>document.getElementById("adminPw").focus(),50);
+}
+function closeAdminModal(){
+  document.getElementById("adminModal").classList.remove("show");
+  pwModalOnConfirm=null;
+}
+document.getElementById("adminClose").onclick=closeAdminModal;
+document.getElementById("adminModal").onclick=e=>{if(e.target.id==="adminModal")closeAdminModal();};
+
+/* 비밀번호 보이기/숨기기 토글 */
+document.getElementById("adminPwToggle").onclick=()=>{
+  const inp=document.getElementById("adminPw");
+  const btn=document.getElementById("adminPwToggle");
+  if(inp.type==="password"){inp.type="text";btn.textContent="🙈";}
+  else{inp.type="password";btn.textContent="👁";}
+};
+
+/* 비밀번호 입력 중 Enter 키 */
+document.getElementById("adminPw").addEventListener("keydown",e=>{
+  if(e.key==="Enter")document.getElementById("adminConfirmBtn").click();
+});
+
+document.getElementById("adminConfirmBtn").onclick=async()=>{
+  const pw=document.getElementById("adminPw").value;
+  const fn=pwModalOnConfirm;
+  if(!fn)return;
+  const ok=await fn(pw);
+  if(!ok){
+    document.getElementById("adminErr").style.display="block";
+    document.getElementById("adminPw").value="";
+    document.getElementById("adminPw").focus();
+    return;
+  }
+  closeAdminModal();
+};
+
+/* 글 작성자 비밀번호 검증 (해시 비교). 작성자 정보가 없는 옛 글은 항상 false. */
+async function checkAuthorPw(guide,pw){
+  if(!guide||!guide.authorPwHash)return false;
+  return (await hashPw(pw))===guide.authorPwHash;
+}
+async function isAdminPw(pw){return (await hashPw(pw))===ADMIN_PW_HASH;}
+async function isMasterPw(pw){return (await hashPw(pw))===MASTER_PW_HASH;}
+
+/* ── 삭제: 작성자 본인 비밀번호 또는 관리자 비밀번호 모두 허용 ── */
+async function doDeleteGuide(id){
+  guides=guides.filter(g=>g.id!==id);
+  await saveJSON("guides:list",guides,true);
+  await storage.delete("guide:"+id+":content",true);
+  unwatchLock(id);
+  await writeLock(id,null);
+  delete lockState[id];
+  backToGrid();
+  toast("가이드를 삭제했어요.");
+}
+document.getElementById("deleteGuideBtn").onclick=()=>{
+  if(!currentGuide)return;
+  const guide=currentGuide, id=guide.id;
+  const hasAuthor=!!guide.authorPwHash;
+  openPwModal({
+    title:"🗑 삭제 확인",
+    desc:hasAuthor
+      ?"작성자 본인이면 작성 시 입력한 비밀번호를,<br>운영자라면 관리자 비밀번호를 입력해주세요."
+      :"작성자 정보가 없는 가이드예요.<br>관리자 비밀번호를 입력해주세요.",
+    onConfirm: async(pw)=>{
+      const isAdmin=await isAdminPw(pw);
+      const isAuthor=!isAdmin&&await checkAuthorPw(guide,pw);
+      if(isAdmin||isAuthor){
+        await doDeleteGuide(id);
+        await logAdminAction("게시글 삭제",guide.title||id,isAdmin?"운영자":"작성자 본인");
+        return true;
+      }
+      await logAdminAction("게시글 삭제 실패(비번 불일치)",guide.title||id,"알 수 없음");
+      return false;
+    }
+  });
+};
+
+/* ── 편집 진입 시 닉네임 입력 모달 (다른 사람에게 "○○님 편집 중"으로 보여주기 위함) ── */
+function openNickModal(onConfirm){
+  const inp=document.getElementById("nickInput");
+  inp.value="";
+  document.getElementById("nickModal").classList.add("show");
+  setTimeout(()=>inp.focus(),50);
+  nickModalOnConfirm=onConfirm;
+}
+function closeNickModal(){
+  document.getElementById("nickModal").classList.remove("show");
+  nickModalOnConfirm=null;
+}
+let nickModalOnConfirm=null;
+document.getElementById("nickClose").onclick=closeNickModal;
+document.getElementById("nickModal").onclick=e=>{if(e.target.id==="nickModal")closeNickModal();};
+document.getElementById("nickInput").addEventListener("keydown",e=>{
+  if(e.key==="Enter")document.getElementById("nickConfirmBtn").click();
+});
+document.getElementById("nickConfirmBtn").onclick=()=>{
+  const nick=document.getElementById("nickInput").value.trim()||"익명";
+  const fn=nickModalOnConfirm;
+  closeNickModal();
+  if(fn)fn(nick);
+};
+
+/* ── 수정(편집 모드 진입): 작성자 본인 비밀번호 또는 관리자 비밀번호 + 락 확인 ── */
+document.getElementById("viewToggleBtn").onclick=async()=>{
+  // 다른 사람이 편집 중이면 클릭 자체를 막음 (CSS만으론 클릭이 통과되므로 여기서도 차단)
+  if(document.getElementById("viewToggleBtn").classList.contains("is-locked")){
+    const lock=getActiveLock(currentGuide&&currentGuide.id);
+    toast((lock?lock.nickname+"님이":"다른 사람이")+" 편집 중이라 지금은 수정할 수 없어요.","err");
+    return;
+  }
+  // 편집 모드 → 보기 모드 전환은 비번 없이 자유 (단, 내 락은 풀어줘서 남이 들어올 수 있게 함)
+  if(viewMode==="edit"){
+    if(currentGuide)await releaseLock(currentGuide.id);
+    setViewMode("read");
+    if(currentContent)renderBlocks();
+    document.getElementById("emojiPop").hidden=true;
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+  // 보기 모드 → 편집 모드 전환 전, 다른 사람이 이미 편집 중인지 먼저 확인
+  const lockedBy=getActiveLock(currentGuide.id);
+  if(lockedBy && lockedBy.clientId!==CLIENT_ID){
+    toast(lockedBy.nickname+"님이 편집 중이라 지금은 수정할 수 없어요.","err");
+    return;
+  }
+  // 보기 모드 → 편집 모드 전환은 비밀번호 확인 필요
+  const guide=currentGuide;
+  const hasAuthor=!!guide.authorPwHash;
+  openPwModal({
+    title:"✏️ 수정 권한 확인",
+    desc:hasAuthor
+      ?"작성 시 입력한 비밀번호를 입력하면 수정할 수 있어요.<br>(운영자는 관리자 비밀번호로도 가능해요)"
+      :"작성자 정보가 없는 가이드예요.<br>관리자 비밀번호를 입력해주세요.",
+    onConfirm: async(pw)=>{
+      const isAdmin=await isAdminPw(pw);
+      const isAuthor=!isAdmin&&await checkAuthorPw(guide,pw);
+      if(isAdmin||isAuthor){
+        await logAdminAction("게시글 수정 시작",guide.title||guide.id,isAdmin?"운영자":"작성자 본인");
+        // 비밀번호 확인 통과 후 다시 한 번 락을 확인 (그 사이 다른 사람이 먼저 들어갔을 수 있음)
+        const recheck=getActiveLock(guide.id);
+        if(recheck && recheck.clientId!==CLIENT_ID){
+          toast(recheck.nickname+"님이 방금 편집을 시작했어요.","err");
+          return true; // 비밀번호는 맞았으니 모달은 닫아줌
+        }
+        openNickModal(async(nick)=>{
+          const res=await tryAcquireLock(guide.id,nick);
+          if(!res.ok){
+            toast(res.owner.nickname+"님이 편집 중이라 들어갈 수 없어요.","err");
+            return;
+          }
+          setViewMode("edit");
+          if(currentContent)renderBlocks();
+          document.getElementById("emojiPop").hidden=true;
+          window.scrollTo({top:0,behavior:"smooth"});
+        });
+        return true;
+      }
+      await logAdminAction("게시글 수정 시도 실패(비번 불일치)",guide.title||guide.id,"알 수 없음");
+      return false;
+    }
+  });
+};
+
+/* ── 저장 ── */
+function contentSize(){return new TextEncoder().encode(JSON.stringify(currentContent)).length;}
+function updateCapHint(){
+  const bytes=contentSize();
+  const mb=(bytes/1024/1024).toFixed(2);
+  const hint=document.getElementById("capHint");
+  hint.textContent="저장 용량 "+mb+"MB / 5MB";
+  hint.classList.toggle("warn",bytes>4.3*1024*1024);
+}
+function setSaveIndicator(text,cls){
+  const el=document.getElementById("saveIndicator");
+  el.textContent=text;
+  el.className="save-indicator"+(cls?" "+cls:"");
+}
+function scheduleSave(){
+  setSaveIndicator("저장 중…","saving");
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(doSave,600);
+  // 사용자가 실제로 편집 활동을 했다는 신호 → 내 락의 활동 시각을 갱신 (방치 판정에 사용)
+  if(myLockGuideId&&currentGuide&&myLockGuideId===currentGuide.id){
+    const nick=(lockState[currentGuide.id]&&lockState[currentGuide.id].nickname)||"익명";
+    const lock={clientId:CLIENT_ID,nickname:nick,ts:Date.now()};
+    lockState[currentGuide.id]=lock;
+    writeLock(currentGuide.id,lock);
+  }
+}
+async function doSave(){
+  if(!currentGuide||!currentContent)return;
+  const ok=await saveJSON("guide:"+currentGuide.id+":content",currentContent,true);
+  currentGuide.blockCount=currentContent.blocksOrder.length;
+  currentGuide.updatedAt=Date.now();
+  sortGuides();
+  const ok2=await saveJSON("guides:list",manualGuides,true);
+  setSaveIndicator(ok&&ok2?"모두 저장됨 · "+fmtTime(Date.now()):"저장 실패 · 다시 시도해주세요","");
+  if(!(ok&&ok2)) document.getElementById("saveIndicator").classList.add("failed");
+  else document.getElementById("saveIndicator").classList.add("saved");
+}
+
+/* ── 라이트박스 (여러 장이면 ←→ 또는 버튼으로 이동) ── */
+let lbList=[]; let lbIdx=0;
+function openLightbox(src,list,idx){
+  lbList=Array.isArray(list)&&list.length?list:[src];
+  lbIdx=typeof idx==="number"?idx:lbList.indexOf(src);
+  if(lbIdx<0)lbIdx=0;
+  renderLightbox();
+  document.getElementById("lightbox").classList.add("show");
+}
+function renderLightbox(){
+  document.getElementById("lbImg").src=lbList[lbIdx];
+  const multi=lbList.length>1;
+  document.getElementById("lbPrev").classList.toggle("hide",!multi);
+  document.getElementById("lbNext").classList.toggle("hide",!multi);
+  document.getElementById("lbCounter").textContent=multi?(lbIdx+1)+" / "+lbList.length:"";
+}
+function lbStep(d){
+  if(lbList.length<2)return;
+  lbIdx=(lbIdx+d+lbList.length)%lbList.length;
+  renderLightbox();
+}
+function closeLightbox(){document.getElementById("lightbox").classList.remove("show");}
+document.getElementById("lbClose").onclick=closeLightbox;
+document.getElementById("lbPrev").onclick=e=>{e.stopPropagation();lbStep(-1);};
+document.getElementById("lbNext").onclick=e=>{e.stopPropagation();lbStep(1);};
+document.getElementById("lightbox").onclick=e=>{if(e.target.id==="lightbox")closeLightbox();};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){closeLightbox();closeNewGuideModal();closeAdminModal();}
+  if(document.getElementById("lightbox").classList.contains("show")){
+    if(e.key==="ArrowLeft")lbStep(-1);
+    if(e.key==="ArrowRight")lbStep(1);
+  }
+});
+
+init();
+
+/* ══════════════════════════════════════════════════════════════
+   댓글(COMMENT) 시스템
+   저장 구조: guide:{id}:comments → [{id,nick,body,pwHash,createdAt}, ...]
+   Firebase 연결 시 실시간 구독, 아니면 폴링 방식으로 갱신
+   ══════════════════════════════════════════════════════════════ */
+let cmtGuideId = null;
+let cmtFbRef = null;
+let cmtPollTimer = null;
+const AVATAR_COLORS = ["#4a6cf7","#0fb8a6","#d99a12","#e0395f","#7f9bff","#5fd089","#ff9f43","#37cdbf"];
+
+function cmtColorFor(nick) {
+  let h = 0;
+  for (const ch of String(nick)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+function cmtInitials(nick) {
+  return (nick || "?").slice(0, 1).toUpperCase();
+}
+
+async function loadComments(guideId) {
+  return (await loadJSON("guide:" + guideId + ":comments", true)) || [];
+}
+async function saveComments(guideId, list) {
+  return await saveJSON("guide:" + guideId + ":comments", list, true);
+}
+
+function renderComments(list) {
+  const el = document.getElementById("cmtList");
+  const badge = document.getElementById("cmtCountBadge");
+  if (!el) return;
+  if (cmtGuideId) cmtCountCache[cmtGuideId] = list.length;
+  badge.textContent = list.length;
+  if (list.length === 0) {
+    el.innerHTML = '<div class="cmt-empty">첫 댓글을 남겨보세요 👋</div>';
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const color = cmtColorFor(c.nick);
+    return `<div class="cmt-item" data-cid="${esc(c.id)}">
+      <div class="cmt-header">
+        <div class="cmt-avatar" style="background:${color}">${esc(cmtInitials(c.nick))}</div>
+        <span class="cmt-nick">${esc(c.nick)}</span>
+        <span class="cmt-time">${fmtAgo(c.createdAt)}</span>
+      </div>
+      <div class="cmt-body">${esc(c.body)}</div>
+      <button class="cmt-del-btn" data-cid="${esc(c.id)}" title="댓글 삭제">🗑 삭제</button>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".cmt-del-btn").forEach(btn => {
+    btn.onclick = () => deleteCmt(btn.dataset.cid);
+  });
+}
+
+async function deleteCmt(cid) {
+  const item = document.querySelector(`.cmt-item[data-cid="${cid}"]`);
+  // 비밀번호 확인 모달 재활용
+  openPwModal({
+    title: "🗑 댓글 삭제",
+    desc: "작성 시 입력한 비밀번호를 입력하면 삭제할 수 있어요.<br>(운영자는 관리자 비밀번호로도 가능해요)",
+    onConfirm: async (pw) => {
+      const list = await loadComments(cmtGuideId);
+      const cmt = list.find(c => c.id === cid);
+      if (!cmt) return true;
+      const isAdmin = await isAdminPw(pw);
+      const pwHash = await hashPw(pw);
+      const cmtLabel = (cmt.nick ? "["+cmt.nick+"] " : "") + (cmt.body || "").slice(0, 30);
+      if (!isAdmin && pwHash !== cmt.pwHash) {
+        await logAdminAction("댓글 삭제 실패(비번 불일치)", cmtLabel, "알 수 없음");
+        return false;
+      }
+      if (item) item.classList.add("deleting");
+      const next = list.filter(c => c.id !== cid);
+      await saveComments(cmtGuideId, next);
+      cmtCountCache[cmtGuideId] = next.length;
+      // Firebase 실시간이면 구독이 자동 갱신, 아니면 직접 렌더
+      if (!fbdb || window.storage) renderComments(next);
+      await logAdminAction("댓글 삭제", cmtLabel, isAdmin ? "운영자" : "작성자 본인");
+      toast("댓글을 삭제했어요.");
+      return true;
+    }
+  });
+}
+
+function watchComments(guideId) {
+  unwatchComments();
+  cmtGuideId = guideId;
+  if (fbdb && !window.storage) {
+    const ref = fbdb.ref("board/" + encodeURIComponent("guide:" + guideId + ":comments"));
+    ref.on("value", snap => {
+      const list = snap.exists() ? JSON.parse(snap.val()) : [];
+      renderComments(list);
+    });
+    cmtFbRef = ref;
+  } else {
+    // 폴링: 30초마다 갱신
+    loadComments(guideId).then(renderComments);
+    cmtPollTimer = setInterval(async () => {
+      if (cmtGuideId === guideId) renderComments(await loadComments(guideId));
+    }, 30000);
+  }
+}
+function unwatchComments() {
+  if (cmtFbRef) { cmtFbRef.off(); cmtFbRef = null; }
+  if (cmtPollTimer) { clearInterval(cmtPollTimer); cmtPollTimer = null; }
+  cmtGuideId = null;
+}
+
+function showCommentSection(guideId) {
+  const sec = document.getElementById("commentSection");
+  if (sec) sec.style.display = "";
+  watchComments(guideId);
+}
+function hideCommentSection() {
+  const sec = document.getElementById("commentSection");
+  if (sec) sec.style.display = "none";
+  unwatchComments();
+  const badge = document.getElementById("cmtCountBadge");
+  if (badge) badge.textContent = "0";
+  const list = document.getElementById("cmtList");
+  if (list) list.innerHTML = '<div class="cmt-empty">첫 댓글을 남겨보세요 👋</div>';
+}
+
+// 댓글 제출
+document.getElementById("cmtSubmitBtn").onclick = async () => {
+  const nick = document.getElementById("cmtNick").value.trim();
+  const pw = document.getElementById("cmtPw").value;
+  const body = document.getElementById("cmtBody").value.trim();
+  if (!nick) { toast("닉네임을 입력해주세요.", "err"); return; }
+  if (!pw) { toast("삭제에 쓸 비밀번호를 입력해주세요.", "err"); return; }
+  if (!body) { toast("댓글 내용을 입력해주세요.", "err"); return; }
+  if (!cmtGuideId) { toast("게시글을 먼저 열어주세요.", "err"); return; }
+  const btn = document.getElementById("cmtSubmitBtn");
+  btn.disabled = true;
+  try {
+    const pwHash = await hashPw(pw);
+    const cmt = { id: uid(), nick, body, pwHash, createdAt: Date.now() };
+    const list = await loadComments(cmtGuideId);
+    list.push(cmt);
+    const ok = await saveComments(cmtGuideId, list);
+    if (!ok) { toast("댓글 저장에 실패했어요.", "err"); return; }
+    document.getElementById("cmtBody").value = "";
+    cmtCountCache[cmtGuideId] = list.length;
+    // Firebase 구독이 없으면 직접 렌더
+    if (!fbdb || window.storage) renderComments(list);
+    toast("댓글을 달았어요! 🎉");
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// Enter키 제출 방지 (textarea에서는 줄바꿈 허용)
+document.getElementById("cmtBody").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    document.getElementById("cmtSubmitBtn").click();
+  }
+});
+
+/* ── 포인트 버튼: 비밀번호 확인 후 길드전 페이지로 이동 ── */
+document.getElementById("pointsBtn").onclick=()=>{
+  openPwModal({
+    title:"🔒 포인트 페이지 인증",
+    desc:"비밀번호를 입력하면 길드전 페이지로 이동해요.",
+    onConfirm: async(pw)=>{
+      if(!(await isAdminPw(pw)))return false;
+      showGuildPage();
+      return true;
+    }
+  });
+};
+
+/* ── 운영자 비밀번호 변경 ── */
+document.getElementById("pwChangeBtn").onclick=()=>{
+  document.getElementById("pwChangeCurrent").value="";
+  document.getElementById("pwChangeNew").value="";
+  document.getElementById("pwChangeNew2").value="";
+  document.getElementById("pwChangeErr").style.display="none";
+  document.getElementById("pwChangeModal").classList.add("show");
+  setTimeout(()=>document.getElementById("pwChangeCurrent").focus(),50);
+};
+function closePwChangeModal(){
+  document.getElementById("pwChangeModal").classList.remove("show");
+}
+document.getElementById("pwChangeClose").onclick=closePwChangeModal;
+document.getElementById("pwChangeModal").onclick=e=>{
+  if(e.target.id==="pwChangeModal")closePwChangeModal();
+};
+["pwChangeCurrent","pwChangeNew","pwChangeNew2"].forEach(id=>{
+  document.getElementById(id).addEventListener("keydown",e=>{
+    if(e.key==="Enter")document.getElementById("pwChangeConfirmBtn").click();
+  });
+});
+document.getElementById("pwChangeConfirmBtn").onclick=async()=>{
+  const cur=document.getElementById("pwChangeCurrent").value;
+  const nw=document.getElementById("pwChangeNew").value;
+  const nw2=document.getElementById("pwChangeNew2").value;
+  const errEl=document.getElementById("pwChangeErr");
+  const showErr=msg=>{errEl.textContent=msg;errEl.style.display="block";};
+  errEl.style.display="none";
+  if(!cur||!nw||!nw2){showErr("모든 칸을 입력해주세요.");return;}
+  if(nw.length<4){showErr("새 비밀번호는 4자 이상으로 입력해주세요.");return;}
+  if(nw!==nw2){showErr("새 비밀번호가 서로 달라요.");return;}
+  const btn=document.getElementById("pwChangeConfirmBtn");
+  btn.disabled=true;
+  try{
+    if(!(await isMasterPw(cur))){
+      showErr("현재 비밀번호가 틀렸어요.");
+      await logAdminAction("비밀번호 변경 실패(비번 불일치)","관리자 비밀번호","알 수 없음");
+      return;
+    }
+    const newHash=await hashPw(nw);
+    const ok=await storage.set("admin:pwhash",newHash,true);
+    if(!ok){showErr("저장에 실패했어요. 잠시 후 다시 시도해주세요.");return;}
+    ADMIN_PW_HASH=newHash;
+    await logAdminAction("비밀번호 변경","관리자 비밀번호","운영자");
+    closePwChangeModal();
+    toast("🔑 비밀번호가 변경됐어요!");
+  }finally{
+    btn.disabled=false;
+  }
+};
+
+/* ── 운영자 전용 삭제/수정 로그 뷰어 ── */
+document.getElementById("adminLogOpenBtn").onclick=()=>{
+  openPwModal({
+    title:"🔒 로그 열람 인증",
+    desc:"운영자 비밀번호를 입력하면 삭제·수정 로그를 볼 수 있어요.",
+    onConfirm: async(pw)=>{
+      if(!(await isAdminPw(pw)))return false;
+      document.getElementById("adminLogModal").classList.add("show");
+      await refreshAdminLogView();
+      return true;
+    }
+  });
+};
+document.getElementById("adminLogClose").onclick=()=>{
+  document.getElementById("adminLogModal").classList.remove("show");
+};
+document.getElementById("adminLogModal").onclick=e=>{
+  if(e.target.id==="adminLogModal")document.getElementById("adminLogModal").classList.remove("show");
+};
+document.getElementById("adminLogRefreshBtn").onclick=refreshAdminLogView;
+document.getElementById("adminLogClearBtn").onclick=async()=>{
+  if(!confirm("모든 로그를 지울까요? 되돌릴 수 없어요."))return;
+  await saveAdminLogs([]);
+  await refreshAdminLogView();
+  toast("로그를 모두 지웠어요.");
+};
+async function refreshAdminLogView(){
+  const body=document.getElementById("adminLogBody");
+  body.innerHTML='<tr><td colspan="5" style="padding:22px;text-align:center;color:var(--dim)">불러오는 중…</td></tr>';
+  const logs=(await loadAdminLogs()).slice().reverse();
+  if(logs.length===0){
+    body.innerHTML='<tr><td colspan="5" style="padding:22px;text-align:center;color:var(--dim)">기록이 없어요.</td></tr>';
+    return;
+  }
+  body.innerHTML=logs.map(l=>{
+    const d=new Date(l.ts);
+    const pad=n=>String(n).padStart(2,"0");
+    const dstr=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const isFail=/실패/.test(l.action);
+    return `<tr style="border-top:1px solid var(--line)">
+      <td style="padding:7px 10px;white-space:nowrap;color:var(--dim)">${esc(dstr)}</td>
+      <td style="padding:7px 10px;white-space:nowrap;${isFail?"color:var(--danger);font-weight:700":""}">${esc(l.action)}</td>
+      <td style="padding:7px 10px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.target)}">${esc(l.target)}</td>
+      <td style="padding:7px 10px;white-space:nowrap">${esc(l.actor)}</td>
+      <td style="padding:7px 10px;white-space:nowrap;font-family:monospace">${esc(l.ip)}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ── 상세 화면 상단 바 높이를 추적해 .detail-toolbar가 그 아래에 고정되도록 동기화 ── */
+(function syncDetailTopHeight(){
+  const top=document.querySelector(".detail-top");
+  if(!top) return;
+  const apply=()=>document.documentElement.style.setProperty("--detail-top-h", top.offsetHeight+"px");
+  apply();
+  if(typeof ResizeObserver!=="undefined"){
+    new ResizeObserver(apply).observe(top);
+  }else{
+    window.addEventListener("resize", apply);
+  }
+})();
+</script>
+
+<!-- ══════════════════ 길드전 랭킹 로직 (독립 스코프) ══════════════════ -->
+<script>
+(function(){
+/* ── 기본 상수 ── */
+const STAGE_NAMES=["1단계","2단계","3단계","4단계","5단계","6단계","7단계","8단계","9단계"];
+const STAGE_COLOR={"9단계":"var(--s9)","8단계":"var(--s8)","7단계":"var(--s7)","6단계":"var(--s6)","5단계":"var(--s5)","4단계":"var(--s4)","3단계":"var(--s3)","2단계":"var(--s2)","1단계":"var(--s1)"};
+const MINE="";
+const fmt=n=>Number(n).toLocaleString("ko-KR");
+const abbr=n=>n>=1e8?(n/1e8).toFixed(2)+"억":n>=1e4?Math.round(n/1e4).toLocaleString()+"만":fmt(n);
+const WD_KOR=["일","월","화","수","목","금","토"];
+
+/* ── 상태 ── */
+let STAGES=[];   // [{min,stage,range}]
+let BYDATE={};   // "YYYY-MM-DD" → {players,summary,weekday}
+let curDate=null; // 현재 보고 있는 날짜
+let GUILD_ROWS=[]; // [{date,name}] — 엑셀 "guild" 마커 행들 (주마다 바뀌는 상대 길드명)
+
+/* refDate가 속한 주의 상대 길드명을 찾는다.
+   1) 그 주(월~일) 안에 날짜가 찍힌 마커가 있으면 그것을 사용
+   2) 없으면 그 주 이전(가장 최근)의 마커를 사용 (다음 마커가 등록되기 전까지는 직전 길드명 유지)
+   3) 마커가 전혀 없으면 null */
+function getGuildNameForWeek(refDate){
+  if(!refDate||!GUILD_ROWS.length)return null;
+  const ws=getWeekStart(refDate);
+  const sameWeek=GUILD_ROWS.find(r=>getWeekStart(r.date)===ws);
+  if(sameWeek)return sameWeek.name;
+  const prior=GUILD_ROWS.filter(r=>getWeekStart(r.date)<=ws);
+  return prior.length?prior[prior.length-1].name:null;
+}
+
+function updateGuildBadge(refDate){
+  const badge=document.getElementById("guildBadge");
+  if(!badge)return;
+  const name=getGuildNameForWeek(refDate);
+  if(name){
+    badge.style.display="inline-flex";
+    badge.innerHTML=`<span class="ic">🛡️</span> 상대 길드 : <b>${esc(name)}</b>`;
+  }else{
+    badge.style.display="none";
+  }
+  updateScoreboard(refDate);
+}
+
+function updateScoreboard(refDate){
+  const sb=document.getElementById("scoreboard");
+  if(!sb)return;
+  const enemyEl=document.getElementById("sbEnemy");
+  const winEl=document.getElementById("sbWin");
+  const loseEl=document.getElementById("sbLose");
+  const daysEl=document.getElementById("sbDays");
+
+  // 해당 주 월~토 날짜 수집
+  const ws=getWeekStart(refDate||getToday());
+  const weekEnd=new Date(ws+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+5);
+  const weekEndStr=fmtLocalDate(weekEnd);
+  const DOW_NAMES=["월","화","수","목","금","토"];
+
+  // 이번 주 데이터 날짜들 (월~토)
+  const weekDates=Object.keys(BYDATE).filter(ds=>{
+    const d=new Date(ds+"T00:00:00"),dow=d.getDay();
+    return ds>=ws&&ds<=weekEndStr&&dow>=1&&dow<=6;
+  });
+
+  if(weekDates.length===0){sb.classList.remove("show");return;}
+
+  const enemyName=getGuildNameForWeek(refDate||getToday())||"상대 길드";
+
+  // 요일별 승점 가중치: 월=1, 화~금=2, 토=4
+  const WIN_POINTS={"월":1,"화":2,"수":2,"목":2,"금":2,"토":4};
+
+  let wins=0,loses=0;
+  const dayResults=[];
+  DOW_NAMES.forEach(d=>{
+    const ds=weekDates.find(x=>BYDATE[x].weekday.replace("요일","")=== d);
+    if(ds){
+      const wr=BYDATE[ds].winResult;
+      const pt=WIN_POINTS[d]||1;
+      if(wr==="승")wins+=pt;
+      else if(wr==="패")loses+=pt;
+      dayResults.push({d,wr:wr||null,ds,pt});
+    }
+  });
+
+  winEl.textContent=wins;
+  loseEl.textContent=loses;
+  if(enemyEl){
+    enemyEl.textContent=enemyName;
+    enemyEl.title=enemyName;
+  }
+
+  // 일/월 버튼 숨김
+  daysEl.innerHTML="";
+
+  sb.classList.add("show");
+}
+
+/* ── 유틸 ── */
+function summarize(players){
+  const s={}; STAGE_NAMES.forEach(x=>s[x]=0);
+  players.forEach(p=>{if(p.stage in s)s[p.stage]++;});
+  s["총 인원"]=players.length;
+  s["총 점수"]=players.reduce((a,p)=>a+p.score,0);
+  return s;
+}
+function weekdayOf(ds){const d=new Date(ds+"T00:00:00");return WD_KOR[d.getDay()]+"요일";}
+function fmtDateK(ds){const [y,m,d]=ds.split("-");return `${y}년 ${+m}월 ${+d}일`;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function stageFromScore(sc,stages){
+  if(!stages||!stages.length)return null;
+  let cur=stages[0].stage;
+  for(const s of stages){if(sc>=s.min)cur=s.stage;}
+  return cur;
+}
+function normDate(v){
+  if(v==null||v==="")return null;
+  if(typeof v==="number"&&isFinite(v)){
+    const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000);
+    return d.toISOString().slice(0,10);
+  }
+  let s=String(v).trim().replace(/[.\/]/g,"-");
+  const m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return m[1]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[3]).padStart(2,"0");
+  return null;
+}
+
+/* ── 닉네임 별칭(별칭 시트 + 로컬 미리보기) ──
+   엑셀 "별칭" 시트: A열=과거닉네임, B열=현재닉네임 (1행 헤더, 2행~ 데이터)
+   같은 사람이 닉네임을 바꿔도 주간 평균 등 모든 집계에서 "현재닉네임" 하나로 통합되도록
+   과거닉네임 → 최종 현재닉네임 매핑을 만든다 (체인 변경: A→B, B→C 인 경우 A,B 모두 C로 귀결).
+   이 브라우저에서 "별칭 관리" 모달로 등록한 항목(LOCAL_ALIASES, localStorage)도 엑셀 시트와 합쳐서 적용한다
+   (단, 실제로 길드원 전체에 반영하려면 엑셀 "별칭" 시트에도 반영해야 함 — 모달 안내 참고). */
+function getLocalAliases(){
+  try{
+    const raw=localStorage.getItem("guildwar_local_aliases");
+    return raw?JSON.parse(raw):[];
+  }catch(e){return [];}
+}
+function saveLocalAliases(list){
+  try{localStorage.setItem("guildwar_local_aliases",JSON.stringify(list));}catch(e){}
+}
+function buildAliasMap(wb){
+  const JA=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null});
+  const sheet=wb.Sheets["별칭"];
+  const raw=new Map(); // 과거닉 → 현재닉 (1단계 매핑)
+  if(sheet){
+    JA(sheet).forEach((row,i)=>{
+      if(i===0)return; // 헤더 행 스킵
+      const from=row.A, to=row.B;
+      if(from==null||to==null)return;
+      const f=String(from).trim(), t=String(to).trim();
+      if(f&&t&&f!==t)raw.set(f,t);
+    });
+  }
+  // 로컬(이 브라우저) 별칭을 합침 — 동일 from이 있으면 로컬 값으로 덮어씀(미리보기 우선)
+  getLocalAliases().forEach(({from,to})=>{
+    if(from&&to&&from!==to)raw.set(from,to);
+  });
+  // 체인 풀기: a→b→c 형태가 있으면 a,b 모두 최종 c로 매핑 (최대 10단계, 순환 방지)
+  const resolve=name=>{
+    let cur=name, hops=0, seen=new Set();
+    while(raw.has(cur)&&!seen.has(cur)&&hops<10){
+      seen.add(cur); cur=raw.get(cur); hops++;
+    }
+    return cur;
+  };
+  const aliasMap=new Map();
+  raw.forEach((_,from)=>aliasMap.set(from,resolve(from)));
+  return aliasMap;
+}
+function applyAlias(name,aliasMap){
+  return aliasMap&&aliasMap.has(name)?aliasMap.get(name):name;
+}
+
+/* ── 엑셀 파싱 ── */
+function parseWorkbook(wb){
+  /* header:1 → 첫 행을 컬럼명으로 사용하는 일반 json 변환 */
+  const J=ws=>XLSX.utils.sheet_to_json(ws,{raw:true,defval:null});
+  /* header:"A" → 컬럼을 A,B,C...로 지정하는 raw 변환 */
+  const JA=ws=>XLSX.utils.sheet_to_json(ws,{header:"A",raw:true,defval:null});
+  const bydate={};
+  const stages=[];
+  const guildRows=[]; // {date, name} — 길드명 마커 행 ("guild" 마커)
+  const aliasMap=buildAliasMap(wb); // 과거닉네임 → 현재닉네임
+
+  // 1) 기준표 — 1행이 헤더(하한점수/단계/점수범위), 2행~가 데이터
+  const kb=wb.Sheets["기준표"];
+  if(kb){
+    J(kb).forEach(row=>{
+      const mn=row["하한점수"], st=row["단계"], rg=row["점수 범위"];
+      if(typeof mn==="number"&&st&&String(st).includes("단계")){
+        stages.push({min:mn,stage:String(st).trim(),range:rg?String(rg).trim():""});
+      }
+    });
+  }
+
+  // 2) 월별 보관 시트 (YYYY-MM 형식)
+  // 시트 구조: 1행=설명문구("📦 월별 보관..."), 2행=컬럼명(날짜/순위/플레이어/점수/단계), 3행~=데이터
+  wb.SheetNames.forEach(name=>{
+    if(!/^\d{4}-\d{2}$/.test(name))return;
+    const ws=wb.Sheets[name]; if(!ws)return;
+    const rows=JA(ws);
+    // row.A 가 "날짜" 또는 설명 텍스트인 행은 헤더이므로 건너뜀
+    rows.forEach(row=>{
+      // 길드명 마커 행: B열이 "guild" 이면 A열=날짜, C열=길드명
+      if(typeof row.B==="string"&&row.B.trim().toLowerCase()==="guild"){
+        const gds=normDate(row.A);
+        if(gds&&row.C)guildRows.push({date:gds,name:String(row.C).trim()});
+        return;
+      }
+      // A열이 날짜 형식이어야만 데이터 행으로 인식
+      const ds=normDate(row.A);
+      const pl=row.C, sc=row.D, st=row.E, wr=row.F;
+      if(ds&&pl&&typeof sc==="number"){
+        if(!bydate[ds])bydate[ds]=[];
+        const player=applyAlias(String(pl).trim(),aliasMap); // 별칭 → 현재닉네임으로 즉시 통합
+        bydate[ds].push({
+          player,score:sc,
+          stage:st&&String(st).includes("단계")?String(st).trim():stageFromScore(sc,stages),
+          winResult:(typeof wr==="string"&&(wr.trim()==="승"||wr.trim()==="패"))?wr.trim():null
+        });
+      }
+    });
+  });
+
+  // 2-1) 같은 날짜에 닉네임 통합으로 같은 사람이 중복 등록된 경우(예: 닉네임 변경 당일에
+  //      옛닉/새닉 기록이 둘 다 있는 경우) 더 높은 점수 기록 하나만 남긴다.
+  Object.keys(bydate).forEach(ds=>{
+    const seen=new Map();
+    bydate[ds].forEach(p=>{
+      const ex=seen.get(p.player);
+      if(!ex||p.score>ex.score)seen.set(p.player,p);
+    });
+    bydate[ds]=Array.from(seen.values());
+  });
+
+  // 3) 정렬 & rank 부여 & {players,summary,weekday} 객체로 변환
+  let total=0;
+  const bydateFinal={};
+  Object.keys(bydate).forEach(ds=>{
+    const arr=bydate[ds];
+    arr.sort((a,b)=>b.score-a.score);
+    arr.forEach((p,i)=>p.rank=i+1);
+    total+=arr.length;
+    // 1위 플레이어의 승/패 결과만 참조
+    const rank1Result = arr[0]?.winResult || null;
+    bydateFinal[ds]={players:arr, summary:summarize(arr), weekday:weekdayOf(ds), winResult:rank1Result};
+  });
+
+  // 길드명 마커 중 가장 최근 날짜의 것을 채택
+  // 길드명 마커들을 날짜순으로 정렬해서 모두 반환 (주마다 바뀌므로 하나만 쓰지 않음)
+  guildRows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+
+  return {bydate:bydateFinal,stages,totalPlayers:total,guildRows,aliasCount:aliasMap.size};
+}
+
+/* ── 렌더 ── */
+function render(){
+  weekAvgMode=false;
+  renderTabs();
+  updateGuildBadge(curDate);
+  if(!curDate||!BYDATE[curDate]){
+    // 데이터 없는 날짜 선택됨
+    document.getElementById("kpis").innerHTML=`
+      <div class="kpi"><div class="lab">총 랭킹 포인트</div><div class="val">—</div><div class="meta">데이터 없음</div></div>
+      <div class="kpi b"><div class="lab">참여 인원</div><div class="val">—</div><div class="meta"></div></div>
+      <div class="kpi c"><div class="lab">평균 포인트</div><div class="val">—</div><div class="meta"></div></div>
+      <div class="kpi d"><div class="lab">1위 점수</div><div class="val">—</div><div class="meta"></div></div>`;
+    document.getElementById("podium").innerHTML="";
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📋</div><p>날짜를 선택하거나 엑셀을 업데이트 해주세요.</p></div>`;
+    renderDist({},true); renderTable(); return;
+  }
+  const {players:P,summary:S,weekday}=BYDATE[curDate];
+
+  // 뱃지
+  const badge=document.getElementById("dateBadge");
+  badge.style.display="flex";
+  badge.classList.add("show");
+  document.getElementById("badgeTxt").innerHTML=`📅 <b>${esc(fmtDateK(curDate))} (${esc(weekday.replace("요일",""))})</b>`;
+
+  const empty=P.length===0;
+  const total=S["총 점수"]||0,cnt=S["총 인원"]||0,avg=cnt?Math.round(total/cnt):0,top=P[0];
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="lab">총 랭킹 포인트</div><div class="val num">${empty?"—":fmt(total)}</div><div class="meta num">${empty?"데이터 없음":fmt(total)+" P"}</div></div>
+    <div class="kpi b"><div class="lab">참여 인원</div><div class="val num">${empty?"—":cnt}<span style="font-size:14px;color:var(--dim)"> 명</span></div><div class="meta">길드원 기록</div></div>
+    <div class="kpi c"><div class="lab">평균 포인트</div><div class="val num">${empty?"—":fmt(avg)}</div><div class="meta num">${empty?"":fmt(avg)+" P"}</div></div>
+    <div class="kpi d"><div class="lab">1위 점수</div><div class="val num">${empty?"—":fmt(top.score)}</div><div class="meta">${empty?"":esc(top.player)}</div></div>`;
+  document.getElementById("rankhint").textContent=empty?"":`${fmtDateK(curDate)} · ${cnt}명`;
+  document.getElementById("disthint").textContent=empty?"":`총 ${cnt}명`;
+
+  if(empty){
+    document.getElementById("podium").innerHTML="";
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📋</div><p>기록이 없습니다.</p></div>`;
+    renderDist(S,true); renderTable(); return;
+  }
+  const [p1,p2,p3]=P;
+  document.getElementById("podium").innerHTML=`<div class="podium">${pod(p2,"s","2")}${pod(p1,"g","1")}${pod(p3,"br","3")}</div>`;
+  document.querySelectorAll(".pod").forEach(el=>el.onclick=()=>scrollToRank(el.dataset.r));
+  document.getElementById("list").innerHTML=P.map(rowHTML).join("");
+  attachRows(); renderDist(S,false); renderTable(); applyFilter();
+}
+
+function pod(p,cls,m){if(!p)return`<div class="pod ${cls}"><div class="medal">${m}</div><div class="nm">—</div><div class="sc num">—</div></div>`;return`<div class="pod ${cls}" data-r="${p.rank}"><div class="medal">${m}</div><div class="nm">${esc(p.player)}</div><div class="sc num">${fmt(p.score)}</div></div>`;}
+function rowHTML(p){
+  const c=STAGE_COLOR[p.stage]||"var(--s1)";
+  const mine=p.player===MINE?" mine":"";
+  const top=p.rank<=3?" top":"";
+  return `<div class="row${top}${mine}" data-r="${p.rank}" data-n="${esc(p.player)}">
+    <div class="rk num">${p.rank}</div>
+    <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg">[ 빌 런 ] 착한사람들${mine?` · <span class="me">내 기록</span>`:""}</div></div>
+    <div class="sright"><div class="scv num">${fmt(p.score)}</div><div class="tag" style="background:${c}22;color:${c}">${esc(p.stage||"-")}</div></div></div>`;
+}
+function renderDist(S,empty){
+  const max=Math.max(1,...STAGES.map(s=>S[s.stage]||0));
+  document.getElementById("dist").innerHTML=[...STAGES].reverse().map(s=>{
+    const v=S[s.stage]||0,c=STAGE_COLOR[s.stage],w=empty?0:(v/max*100);
+    return `<div class="drow${v===0?" zero":""}"><div class="dl">${s.stage}</div><div class="bar"><i style="width:${w}%;background:${c}"></i></div><div class="dc num" style="color:${v?c:"var(--dim)"}">${v}</div></div>`;
+  }).join("");
+}
+function renderTable(){
+  document.getElementById("stbl").innerHTML=[...STAGES].reverse().map(s=>{
+    const c=STAGE_COLOR[s.stage];
+    return `<div class="strow"><div class="sb" style="background:${c}">${s.stage}</div><div class="sr">${esc(s.range)}</div></div>`;
+  }).join("");
+}
+function attachRows(){document.querySelectorAll(".list .row").forEach(el=>el.onclick=()=>el.classList.toggle("hit"));}
+function scrollToRank(rank){const el=document.querySelector(`.list .row[data-r="${rank}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),1600);}}
+
+const qEl=document.getElementById("qGuild"); qEl.oninput=applyFilter;
+function applyFilter(){
+  const q=qEl.value.trim().toLowerCase();
+  document.querySelectorAll(".list .row").forEach(el=>{
+    const show=!q||el.dataset.n.toLowerCase().includes(q);
+    el.style.display=show?"":"none"; el.classList.toggle("hit",q&&show);
+  });
+}
+
+/* ── 요일 탭 ── */
+const DAY_ORDER=["월","화","수","목","금","토","일"];
+let curTabDay=null;
+
+/* Date 객체를 "로컬 기준" YYYY-MM-DD 문자열로 변환 (UTC 변환 X, timezone 버그 방지) */
+function fmtLocalDate(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+/* 날짜(ds)가 속한 주의 월요일 날짜 문자열 반환 */
+function getWeekStart(ds){
+  const d=new Date(ds+"T00:00:00");
+  const dow=d.getDay(); // 0=일, 1=월 ... 6=토
+  const diffToMon=dow===0?-6:1-dow; // 월요일까지의 차이
+  const mon=new Date(d);
+  mon.setDate(d.getDate()+diffToMon);
+  return fmtLocalDate(mon); // toISOString() 사용 시 UTC 변환으로 KST에서 날짜가 하루 당겨지는 버그 있었음
+}
+
+/* curDate 기준 같은 주에 속하는 날짜 목록 반환 */
+function getDatesInSameWeek(refDate){
+  if(!refDate)return [];
+  const weekStart=getWeekStart(refDate);
+  const weekEnd=new Date(weekStart+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+6);
+  const weekEndStr=fmtLocalDate(weekEnd); // 동일한 이유로 toISOString() 대신 로컬 포맷 사용
+  return Object.keys(BYDATE).filter(ds=>ds>=weekStart&&ds<=weekEndStr);
+}
+
+/* "오늘" 날짜 문자열 (로컬 기준) */
+function getToday(){return fmtLocalDate(new Date());}
+
+function renderTabs(){
+  const tabsEl=document.getElementById("dayTabs");
+  if(!tabsEl)return;
+
+  // 탭은 "현재 보고 있는 날짜(curDate)가 속한 주"를 기준으로 채운다.
+  // curDate가 없으면 오늘이 속한 주(=이번 주)를 기준으로 한다.
+  const today=getToday();
+  const refDateForWeek=curDate||today;
+  const weekDates=getDatesInSameWeek(refDateForWeek);
+  const dayMap={}; // "월" → [날짜배열] (탭 기준 주 내)
+  weekDates.forEach(ds=>{
+    const wd=BYDATE[ds].weekday.replace("요일","");
+    if(!dayMap[wd])dayMap[wd]=[];
+    dayMap[wd].push(ds);
+  });
+
+  tabsEl.innerHTML=DAY_ORDER.map(d=>{
+    const datesInWeek=dayMap[d]||[];
+    const has=d==="일" ? weekDates.filter(ds=>{const dow=new Date(ds+"T00:00:00").getDay();return dow>=1&&dow<=6;}).length>0 : datesInWeek.length>0;
+    const isActive=weekAvgMode ? d==="일" : (curDate&&BYDATE[curDate]&&BYDATE[curDate].weekday.replace("요일","")=== d);
+    const cls="tab"+(isActive?" active":"")+(has?"":" empty");
+    const dot=has?'<span class="dot"></span>':"";
+    
+    // 해당 요일의 승/패 결과 확인 (1위 기준)
+    let resultText="";
+    if(d!=="일"&&datesInWeek.length>0){
+      const ds=datesInWeek[datesInWeek.length-1];
+      const wr=BYDATE[ds]&&BYDATE[ds].winResult;
+      if(wr==="승")resultText=' <span style="color:#46cf86;font-weight:700">(승)</span>';
+      else if(wr==="패")resultText=' <span style="color:#ff5e7e;font-weight:700">(패)</span>';
+    }
+    return `<button class="${cls}" data-day="${d}">${d}요일${resultText}${dot}</button>`;
+  }).join("");
+  // 모든 탭에 클릭 이벤트 부여 (데이터 없는 요일은 selectTabDay 내부에서 처리)
+  tabsEl.querySelectorAll(".tab").forEach(btn=>{
+    btn.onclick=()=>selectTabDay(btn.dataset.day);
+  });
+  renderWeekScoreSection();
+}
+
+function renderWeekScoreSection(){
+  // 요일탭 아래 섹션은 비워두기 (상단 스코어보드에만 표시)
+  const sec=document.getElementById("weekScoreSection");
+  if(sec) sec.innerHTML="";
+}
+
+/* ── 주간 평균 계산 ── */
+let weekAvgMode=false; // 일요일(주간 평균) 탭 활성 여부
+
+function calcWeekAvg(refDate){
+  // 해당 주 월~토 데이터를 모아 유저별 평균 점수 계산
+  const weekStart=getWeekStart(refDate);
+  const weekEnd=new Date(weekStart+"T00:00:00");
+  weekEnd.setDate(weekEnd.getDate()+5); // 월~토(6일)
+  const weekEndStr=fmtLocalDate(weekEnd);
+
+  const weekDates=Object.keys(BYDATE).filter(ds=>{
+    const d=new Date(ds+"T00:00:00");
+    const dow=d.getDay();
+    return ds>=weekStart && ds<=weekEndStr && dow>=1 && dow<=6; // 월(1)~토(6)
+  });
+
+  if(weekDates.length===0)return null;
+
+  // 유저별 점수 합산 & 참여 횟수 카운트
+  const map={};
+  weekDates.forEach(ds=>{
+    BYDATE[ds].players.forEach(p=>{
+      if(!map[p.player])map[p.player]={player:p.player,sum:0,cnt:0,stage:p.stage};
+      map[p.player].sum+=p.score;
+      map[p.player].cnt++;
+      map[p.player].stage=p.stage; // 최신 단계 유지
+    });
+  });
+
+  // 평균 계산 후 정렬
+  const players=Object.values(map).map(u=>({
+    player:u.player,
+    score:Math.round(u.sum/u.cnt),
+    stage:stageFromScore(Math.round(u.sum/u.cnt),STAGES),
+    days:u.cnt // 참여 일수
+  }));
+  players.sort((a,b)=>b.score-a.score);
+  players.forEach((p,i)=>p.rank=i+1);
+
+  return {players, weekDates, weekStart, weekEndStr};
+}
+
+/* 주 시작일(weekStartStr)과 요일명(월~일)으로 실제 날짜 문자열 계산 */
+function getDateForWeekdayInWeek(weekStartStr,dayKor){
+  const idx=DAY_ORDER.indexOf(dayKor); // 월=0 ... 일=6
+  if(idx<0)return null;
+  const d=new Date(weekStartStr+"T00:00:00");
+  d.setDate(d.getDate()+idx);
+  return fmtLocalDate(d);
+}
+
+function selectTabDay(day){
+  curTabDay=day;
+  // 탭이 표시 중인 기준 주(= curDate가 속한 주, 없으면 이번 주)를 그대로 사용
+  const refDateForWeek=curDate||getToday();
+  const weekStart=getWeekStart(refDateForWeek);
+
+  // 일요일 탭 → 주간 평균 모드 (탭이 표시 중인 주 기준)
+  if(day==="일"){
+    weekAvgMode=true;
+    renderWeekAvg(weekStart);
+    toast("📊 "+(weekStart===getWeekStart(getToday())?"이번 주":"해당 주")+" 평균 랭킹");
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+
+  weekAvgMode=false;
+  // 탭이 표시 중인 주에서 해당 요일의 날짜를 찾음
+  const weekDates=getDatesInSameWeek(refDateForWeek);
+  const match=weekDates.find(ds=>BYDATE[ds].weekday.replace("요일","")=== day);
+  const target=match||getDateForWeekdayInWeek(weekStart,day);
+  curDate=target;
+  render();
+  toast(match?day+"요일 기록을 불러왔어요":day+"요일은 아직 데이터가 없어요");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function renderWeekAvg(refDate){
+  refDate=refDate||getToday();
+  renderTabs();
+  updateGuildBadge(refDate);
+  const result=calcWeekAvg(refDate);
+
+  if(!result){
+    document.getElementById("kpis").innerHTML=`
+      <div class="kpi"><div class="lab">주간 평균</div><div class="val">—</div><div class="meta">해당 주 데이터 없음</div></div>
+      <div class="kpi b"><div class="lab">참여 인원</div><div class="val">—</div><div class="meta"></div></div>
+      <div class="kpi c"><div class="lab">평균 포인트</div><div class="val">—</div><div class="meta"></div></div>
+      <div class="kpi d"><div class="lab">1위 평균</div><div class="val">—</div><div class="meta"></div></div>`;
+    document.getElementById("podium").innerHTML="";
+    document.getElementById("list").innerHTML=`<div class="empty-state"><div class="ico">📊</div><p>해당 주 데이터가 없습니다.</p></div>`;
+    renderDist({},true); return;
+  }
+
+  const {players:P, weekDates, weekStart, weekEndStr}=result;
+  const cnt=P.length;
+  const totalAvg=cnt?Math.round(P.reduce((a,p)=>a+p.score,0)/cnt):0;
+  const top=P[0];
+
+  // 뱃지
+  const badge=document.getElementById("dateBadge");
+  badge.style.display="flex";
+  badge.classList.add("show");
+  const ws=weekStart.split("-"),we=weekEndStr.split("-");
+  document.getElementById("badgeTxt").innerHTML=`📊 <b>주간 평균</b> · ${+ws[1]}/${+ws[2]} ~ ${+we[1]}/${+we[2]} (${weekDates.length}일 기준)`;
+
+  document.getElementById("rankhint").textContent=`주간 평균 · ${cnt}명`;
+  document.getElementById("disthint").textContent=`총 ${cnt}명`;
+
+  // 단계별 인원 집계
+  const S={};
+  STAGE_NAMES.forEach(x=>S[x]=0);
+  P.forEach(p=>{if(p.stage in S)S[p.stage]++;});
+
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="lab">집계 기간</div><div class="val" style="font-size:18px">${weekDates.length}일</div><div class="meta">월~토 참여 기준</div></div>
+    <div class="kpi b"><div class="lab">참여 인원</div><div class="val num">${cnt}<span style="font-size:14px;color:var(--dim)"> 명</span></div><div class="meta">길드원 기록</div></div>
+    <div class="kpi c"><div class="lab">전체 평균</div><div class="val num">${fmt(totalAvg)}</div><div class="meta num">${fmt(totalAvg)} P</div></div>
+    <div class="kpi d"><div class="lab">1위 평균</div><div class="val num">${fmt(top.score)}</div><div class="meta">${esc(top.player)}</div></div>`;
+
+  // 포디움
+  const [p1,p2,p3]=P;
+  document.getElementById("podium").innerHTML=`<div class="podium">${pod(p2,"s","2")}${pod(p1,"g","1")}${pod(p3,"br","3")}</div>`;
+  document.querySelectorAll(".pod").forEach(el=>el.onclick=()=>scrollToRank(el.dataset.r));
+
+  // 리스트 (참여 일수 표시)
+  document.getElementById("list").innerHTML=P.map(p=>{
+    const c=STAGE_COLOR[p.stage]||"var(--s1)";
+    const mine=p.player===MINE?" mine":"";
+    const top=p.rank<=3?" top":"";
+    return `<div class="row${top}${mine}" data-r="${p.rank}" data-n="${esc(p.player)}">
+      <div class="rk num">${p.rank}</div>
+      <div class="info"><div class="pn">${esc(p.player)}</div><div class="pg" style="color:var(--dim)">${p.days}일 참여 · 일평균${mine?` · <span class="me">내 기록</span>`:""}</div></div>
+      <div class="sright"><div class="scv num">${fmt(p.score)}</div></div></div>`;
+  }).join("");
+  attachRows(); renderDist(S,false); renderTable(); applyFilter();
+  // 주간 스코어 섹션도 렌더링
+  renderWeekScoreSection();
+}
+
+let tT;
+function toast(m,kind){const t=document.getElementById("toastGuild");t.textContent=m;t.className="toast show"+(kind==="err"?" err":"");clearTimeout(tT);tT=setTimeout(()=>t.className="toast",2800);}
+
+/* ── 달력 ── */
+let calYear,calMonth;
+const modal=document.getElementById("calModal");
+function openCalendar(){
+  const dates=Object.keys(BYDATE).sort();
+  if(dates.length){const last=dates[dates.length-1].split("-");calYear=+last[0];calMonth=+last[1]-1;}
+  else{const t=new Date();calYear=t.getFullYear();calMonth=t.getMonth();}
+  renderCalendar(); modal.classList.add("show");
+}
+function closeCalendar(){modal.classList.remove("show");}
+function calShift(delta){let m=calMonth+delta,y=calYear;if(m<0){m=11;y--;}if(m>11){m=0;y++;}calYear=y;calMonth=m;renderCalendar();}
+function renderCalendar(){
+  document.getElementById("calYM").textContent=`${calYear}년 ${calMonth+1}월`;
+  const grid=document.getElementById("calGrid"); grid.innerHTML="";
+  ["일","월","화","수","목","금","토"].forEach((d,i)=>{
+    const el=document.createElement("div");
+    el.className="cal-dow"+(i===0?" sun":i===6?" sat":"");
+    el.textContent=d; grid.appendChild(el);
+  });
+  const first=new Date(calYear,calMonth,1).getDay();
+  const ndays=new Date(calYear,calMonth+1,0).getDate();
+  for(let i=0;i<first;i++){const p=document.createElement("div");p.className="cal-cell pad";grid.appendChild(p);}
+  const todayStr=fmtLocalDate(new Date()); // toISOString() 사용 시 KST 자정~오전 9시 사이 "오늘"이 전날로 표시되는 버그 있었음
+  for(let d=1;d<=ndays;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const has=!!BYDATE[ds];
+    const cell=document.createElement("div");
+    cell.className="cal-cell"+(has?" has":"")+(curDate===ds?" sel":"")+(ds===todayStr?" today":"");
+    cell.innerHTML=`${d}${has?'<span class="pt"></span>':''}`;
+    if(has)cell.onclick=()=>selectDate(ds);
+    grid.appendChild(cell);
+  }
+  document.getElementById("calPrev").disabled=false;
+  document.getElementById("calNext").disabled=false;
+}
+function selectDate(ds){
+  curDate=ds; closeCalendar(); render();
+  toast(fmtDateK(ds)+" 기록을 불러왔어요");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+document.getElementById("backToBoardBtn").onclick=()=>{ if(typeof showBoardPage==="function") showBoardPage(); };
+document.getElementById("calBtn").onclick=openCalendar;
+document.getElementById("calClose").onclick=closeCalendar;
+document.getElementById("calPrev").onclick=()=>calShift(-1);
+document.getElementById("calNext").onclick=()=>calShift(1);
+modal.onclick=e=>{if(e.target===modal)closeCalendar();};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeCalendar();closeCompare();}});
+/* 이번 주로 돌아가기 → 가장 최근 날짜로 */
+document.getElementById("badgeClr").onclick=()=>{
+  const dates=Object.keys(BYDATE).sort();
+  if(dates.length){curDate=dates[dates.length-1];render();}
+};
+
+/* ── 전일 비교 ── */
+function getPrevDataDate(ds){
+  const dates=Object.keys(BYDATE).filter(d=>d<ds).sort();
+  return dates.length?dates[dates.length-1]:null;
+}
+function stageNum(stage){
+  const m=stage&&String(stage).match(/(\d+)/);
+  return m?+m[1]:null;
+}
+function stageIdx(stage){return STAGE_NAMES.indexOf(stage);}
+function diffBadge(diff){
+  if(diff==null)return `<span style="color:var(--dim);font-weight:700">신규</span>`;
+  if(diff>0)return `<span style="color:var(--mine);font-weight:800">+${fmt(diff)}</span>`;
+  if(diff<0)return `<span style="color:var(--s9);font-weight:800">${fmt(diff)}</span>`;
+  return `<span style="color:var(--dim);font-weight:700">±0</span>`;
+}
+function stageChangeBadge(curStage,prevStage){
+  if(!prevStage)return "";
+  const ci=stageIdx(curStage), pi=stageIdx(prevStage);
+  if(ci<0||pi<0||ci===pi)return "";
+  if(ci>pi)return `<span style="font-size:10.5px;font-weight:800;color:var(--mine);margin-left:6px">▲ ${esc(prevStage)}→${esc(curStage)}</span>`;
+  return `<span style="font-size:10.5px;font-weight:800;color:var(--s9);margin-left:6px">▼ ${esc(prevStage)}→${esc(curStage)}</span>`;
+}
+function openCompare(){
+  if(!curDate||!BYDATE[curDate]){toast("먼저 날짜를 선택해 주세요.","err");return;}
+  const dates=Object.keys(BYDATE).sort();
+  if(dates.length<2){toast("비교할 이전 기록이 없어요.","err");return;}
+
+  // 드롭다운 옵션 채우기
+  const prevSel=document.getElementById("comparePrevSel");
+  const curSel=document.getElementById("compareCurSel");
+  const fmtOpt=ds=>{const d=BYDATE[ds];return `${fmtDateK(ds)} (${d.weekday.replace("요일","")})`;};
+  prevSel.innerHTML=dates.map(ds=>`<option value="${ds}">${fmtOpt(ds)}</option>`).join("");
+  curSel.innerHTML=dates.map(ds=>`<option value="${ds}">${fmtOpt(ds)}</option>`).join("");
+
+  // 기본값: curSel = curDate, prevSel = 직전 날짜
+  const prevDate=getPrevDataDate(curDate)||dates[0];
+  curSel.value=curDate;
+  prevSel.value=prevDate;
+
+  renderCompare(curSel.value, prevSel.value);
+  document.getElementById("compareModal").classList.add("show");
+}
+function onCompareSelChange(){
+  const prevSel=document.getElementById("comparePrevSel");
+  const curSel=document.getElementById("compareCurSel");
+  if(prevSel.value===curSel.value){toast("이전 날짜와 비교 날짜가 같아요.","err");return;}
+  renderCompare(curSel.value, prevSel.value);
+}
+function closeCompare(){document.getElementById("compareModal").classList.remove("show");}
+function renderCompare(curDS,prevDS){
+  const curP=BYDATE[curDS].players, prevP=BYDATE[prevDS].players;
+  const prevMap=new Map(prevP.map(p=>[p.player,p]));
+  const curMap=new Map(curP.map(p=>[p.player,p]));
+
+  document.getElementById("compareRange").innerHTML=
+    `<b style="color:var(--tx)">${esc(fmtDateK(prevDS))}(${esc(BYDATE[prevDS].weekday.replace("요일",""))})</b> → `+
+    `<b style="color:var(--gold)">${esc(fmtDateK(curDS))}(${esc(BYDATE[curDS].weekday.replace("요일",""))})</b> 기준 비교`;
+
+  // 1) 6단계 이하 유저 변동
+  const rows=[];
+  curP.forEach(p=>{
+    const sn=stageNum(p.stage);
+    if(sn==null||sn>6)return;
+    const prev=prevMap.get(p.player);
+    const diff=prev?p.score-prev.score:null;
+    rows.push({player:p.player,curScore:p.score,prevScore:prev?prev.score:null,diff,curStage:p.stage,prevStage:prev?prev.stage:null});
+  });
+  rows.sort((a,b)=>{
+    if(a.diff==null&&b.diff==null)return b.curScore-a.curScore;
+    if(a.diff==null)return 1;
+    if(b.diff==null)return -1;
+    return b.diff-a.diff;
+  });
+  const upEl=document.getElementById("compareUpList");
+  if(!rows.length){
+    upEl.innerHTML=`<div class="empty-state" style="padding:24px"><p>6단계 이하 유저 기록이 없어요.</p></div>`;
+  }else{
+    upEl.innerHTML=rows.map(r=>{
+      const c=STAGE_COLOR[r.curStage]||"var(--s1)";
+      return `<div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0">
+          <div style="font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.player)}
+            <span class="tag" style="background:${c}22;color:${c};margin-left:6px">${esc(r.curStage||"-")}</span>
+            ${stageChangeBadge(r.curStage,r.prevStage)}
+          </div>
+          <div style="font-size:11.5px;color:var(--dim);margin-top:3px">${r.prevScore!=null?fmt(r.prevScore)+" P → ":""}${fmt(r.curScore)} P</div>
+        </div>
+        <div style="text-align:right;font-size:14px">${diffBadge(r.diff)}</div>
+      </div>`;
+    }).join("");
+  }
+
+  // 2) 어제 참가, 오늘 불참
+  const missing=prevP.filter(p=>!curMap.has(p.player)).sort((a,b)=>b.score-a.score);
+  const missEl=document.getElementById("compareMissingList");
+  if(!missing.length){
+    missEl.innerHTML=`<div class="empty-state" style="padding:24px"><p>전원 참가했어요. 🎉</p></div>`;
+  }else{
+    missEl.innerHTML=missing.map(p=>{
+      const c=STAGE_COLOR[p.stage]||"var(--s1)";
+      return `<div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)">
+        <div style="font-size:13.5px;font-weight:700">${esc(p.player)} <span class="tag" style="background:${c}22;color:${c};margin-left:6px">${esc(p.stage||"-")}</span></div>
+        <div style="font-size:13px;color:var(--dim)">전일 ${fmt(p.score)} P</div>
+      </div>`;
+    }).join("");
+  }
+}
+document.getElementById("compareBtn").onclick=openCompare;
+document.getElementById("compareClose").onclick=closeCompare;
+document.getElementById("compareModal").onclick=e=>{if(e.target.id==="compareModal")closeCompare();};
+document.getElementById("comparePrevSel").onchange=onCompareSelChange;
+document.getElementById("compareCurSel").onchange=onCompareSelChange;
+
+/* ── 깃헙 엑셀 자동 로드 ── */
+/* 엑셀 파일을 별도 저장소(guild-war-data)에서 관리 → 저장소 이름만 바꾸면 다른 이름으로도 사용 가능 */
+const GITHUB_XLSX_URL="https://raw.githubusercontent.com/88view/guild-war-data/main/%EA%B8%B8%EB%93%9C%EC%A0%84_%EC%97%85%EB%A1%9C%EB%93%9C_%ED%8C%8C%EC%9D%BC.xlsx";
+let LAST_WB=null; // 가장 최근에 로드한 workbook (별칭 추가/삭제 후 재파싱용)
+function reparseAndRender(){
+  if(!LAST_WB)return;
+  const parsed=parseWorkbook(LAST_WB);
+  BYDATE=parsed.bydate;
+  STAGES=parsed.stages;
+  GUILD_ROWS=parsed.guildRows||[];
+  const dates=Object.keys(BYDATE).sort();
+  if(!curDate||!BYDATE[curDate])curDate=dates[dates.length-1]||null;
+  updateGuildBadge(curDate);
+  weekAvgMode?renderWeekAvg(getWeekStart(curDate||getToday())):render();
+}
+(async function autoLoad(){
+  try{
+    toast("📡 최신 데이터 불러오는 중...");
+    const res=await fetch(GITHUB_XLSX_URL+"?t="+Date.now());
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(buf),{type:"array",cellDates:false});
+    LAST_WB=wb;
+    const parsed=parseWorkbook(wb);
+    if(parsed.totalPlayers===0){toast("엑셀에 플레이어 데이터가 없어요.","err");return;}
+    BYDATE=parsed.bydate;
+    STAGES=parsed.stages;
+    GUILD_ROWS=parsed.guildRows||[];
+    /* 가장 최근 날짜를 기본으로 표시 (탭은 항상 실제 "이번 주" 기준으로 별도 계산됨) */
+    const dates=Object.keys(BYDATE).sort();
+    curDate=dates[dates.length-1]||null;
+    updateGuildBadge(curDate);
+    /* localStorage 저장 */
+    try{localStorage.setItem("guildwar_data",JSON.stringify({BYDATE,STAGES,guildRows:GUILD_ROWS,savedAt:new Date().toISOString()}));}catch(e){}
+    const setTxt=(id,txt)=>{const el=document.getElementById(id);if(el)el.textContent=txt;};
+    setTxt("srcLabel","자동 업데이트");
+    setTxt("dateVal",new Date().toLocaleDateString("ko-KR"));
+    render();
+    toast(parsed.aliasCount?`✅ 최신 데이터 반영 완료! (별칭 ${parsed.aliasCount}건 적용)`:"✅ 최신 데이터 반영 완료!");
+  }catch(e){
+    console.warn("깃헙 자동 로드 실패:",e);
+    /* localStorage 복원 시도 */
+    try{
+      const saved=localStorage.getItem("guildwar_data");
+      if(saved){
+        const p=JSON.parse(saved);
+        if(p.BYDATE)BYDATE=p.BYDATE;
+        if(p.STAGES)STAGES=p.STAGES;
+        if(p.guildRows)GUILD_ROWS=p.guildRows;
+        const dates=Object.keys(BYDATE).sort();
+        curDate=dates[dates.length-1]||null;
+        updateGuildBadge(curDate);
+        render();
+        toast("⚠️ 오프라인 저장 데이터로 표시합니다","err");
+        return;
+      }
+    }catch(e2){}
+    toast("⚠️ 자동 로드 실패","err");
+    render();
+  }
+})();
+
+/* ── 닉네임 별칭 관리 모달 ── */
+(function(){
+  const modal=document.getElementById("aliasModal");
+  const fromInput=document.getElementById("aliasFrom");
+  const toInput=document.getElementById("aliasTo");
+  const listEl=document.getElementById("aliasList");
+
+  function renderAliasList(){
+    const list=getLocalAliases();
+    if(!list.length){
+      listEl.innerHTML=`<div style="padding:18px;text-align:center;color:var(--dim);font-size:12.5px">아직 등록된 별칭이 없어요.</div>`;
+      return;
+    }
+    listEl.innerHTML=list.map((a,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)">
+        <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.from)} <span style="color:var(--dim)">→</span> <b>${esc(a.to)}</b></div>
+        <button data-i="${i}" class="aliasDelBtn" style="background:transparent;border:1px solid var(--line2);color:var(--muted);font-size:11px;font-weight:700;border-radius:7px;padding:5px 9px;cursor:pointer">삭제</button>
+      </div>`).join("");
+    listEl.querySelectorAll(".aliasDelBtn").forEach(btn=>{
+      btn.onclick=()=>{
+        const i=+btn.dataset.i;
+        const list2=getLocalAliases();
+        list2.splice(i,1);
+        saveLocalAliases(list2);
+        renderAliasList();
+        reparseAndRender();
+        toast("별칭을 삭제했어요");
+      };
+    });
+  }
+
+  document.getElementById("aliasBtn").onclick=()=>{
+    renderAliasList();
+    modal.classList.add("show");
+  };
+  document.getElementById("aliasClose").onclick=()=>modal.classList.remove("show");
+  modal.onclick=e=>{if(e.target===modal)modal.classList.remove("show");};
+
+  document.getElementById("aliasAddBtn").onclick=()=>{
+    const from=fromInput.value.trim(), to=toInput.value.trim();
+    if(!from||!to){toast("과거 닉네임과 현재 닉네임을 모두 입력해 주세요.","err");return;}
+    if(from===to){toast("두 닉네임이 같아요.","err");return;}
+    const list=getLocalAliases();
+    const exists=list.find(a=>a.from===from);
+    if(exists)exists.to=to; else list.push({from,to});
+    saveLocalAliases(list);
+    fromInput.value=""; toInput.value="";
+    renderAliasList();
+    reparseAndRender();
+    toast(`✅ "${from}" → "${to}" 별칭이 적용됐어요 (브라우저 미리보기)`);
+  };
+
+  document.getElementById("aliasCopyBtn").onclick=async()=>{
+    const list=getLocalAliases();
+    if(!list.length){toast("복사할 별칭이 없어요.","err");return;}
+    const text="과거닉네임\t현재닉네임\n"+list.map(a=>`${a.from}\t${a.to}`).join("\n");
+    try{
+      await navigator.clipboard.writeText(text);
+      toast("📋 복사됐어요! 엑셀 \"별칭\" 시트에 붙여넣어 주세요.");
+    }catch(e){
+      toast("복사에 실패했어요. 브라우저 권한을 확인해 주세요.","err");
+    }
+  };
+})();
+
+/* ── 공지 작성 / 게임 미리보기 ──
+   실제 게임 공지 입력란은 1000자 제한, BBCode 비슷한 태그(<b>,<u>,<color=#hex>)를 지원.
+   미리보기 폭은 입력창보다 좁아서 자동 줄바꿈이 일어나는데, 실측해보면 이건 "글자 수"가 아니라
+   "글자 너비"(가로 픽셀폭) 기준이다 — 한글/이모지/특수기호처럼 폭이 넓은 글자는 영문/숫자/공백
+   같은 폭이 좁은 글자보다 거의 2배 넓게 차지한다.
+   그래서 폭이 좁은 글자는 1, 폭이 넓은 글자(한글/이모지/box-drawing 등)는 2로 가중치를 매겨
+   합산한 뒤, 누적 가중치가 WRAP_UNITS를 넘는 지점에서 줄바꿈한다.
+   (실측 스크린샷 기준 보정: 영문/숫자 위주 27자 줄 [예: "오전 치즈 --▶ 11:05 (UTC 00:05)"]은
+   안 잘리고(가중치 32), 한글 위주 23자 줄은 잘림(가중치 46) → 임계값은 그 사이인 40으로 설정). */
+(function(){
+  const WRAP_UNITS=40;
+  const TAG_RE=/<\/?(?:b|u|color(?:=#[0-9a-fA-F]{3,6})?)>/gi;
+
+  function tokenizeLine(line){
+    const tokens=[]; let last=0,m;
+    TAG_RE.lastIndex=0;
+    while((m=TAG_RE.exec(line))){
+      if(m.index>last)for(const ch of line.slice(last,m.index))tokens.push({t:"ch",v:ch});
+      tokens.push({t:"tag",v:m[0]});
+      last=m.index+m[0].length;
+    }
+    if(last<line.length)for(const ch of line.slice(last))tokens.push({t:"ch",v:ch});
+    return tokens;
+  }
+
+  /* 한 글자의 표시 너비 가중치. 한글 음절/자모, CJK 기호·문장부호, box-drawing/기하학적 도형,
+     이모지, 전각문자는 2, 그 외(영문/숫자/공백/일반 기호 등)는 1. */
+  function charWidth(ch){
+    const cp=ch.codePointAt(0);
+    if((cp>=0xAC00&&cp<=0xD7A3)||(cp>=0x1100&&cp<=0x11FF)||(cp>=0x3130&&cp<=0x318F))return 2;
+    if((cp>=0x2E80&&cp<=0xA4CF)||(cp>=0x2580&&cp<=0x27BF)||(cp>=0x1F000&&cp<=0x1FFFF)||(cp>=0xFF00&&cp<=0xFFEF))return 2;
+    return 1;
+  }
+
+  /* 한 원본 줄을 누적 표시폭이 WRAP_UNITS를 넘는 지점마다 자동 줄바꿈.
+     단, 줄바꿈 지점 바로 다음이 닫는 태그(</b> 등)라면 그 태그가 다음 줄에 혼자
+     떨어지지 않도록 닫는 태그까지 출력한 뒤에 줄바꿈을 넣는다. */
+  function wrapLineTokens(tokens){
+    const out=[]; let width=0; let inLead=true;
+    for(let i=0;i<tokens.length;i++){
+      const tok=tokens[i];
+      if(tok.t==="tag"){out.push(tok);continue;}
+      /* 줄 맨 앞의 들여쓰기(탭/스페이스)는 줄바꿈 기준 너비 계산에서 제외
+         (실제 게임 화면 확인 결과: 들여쓰기 포함 줄도 들여쓰기 자체는 줄바꿈 폭에 영향 없음) */
+      if(inLead && (tok.v===" "||tok.v==="\t")){out.push(tok);continue;}
+      inLead=false;
+      out.push(tok); width+=charWidth(tok.v);
+      if(width>=WRAP_UNITS && i<tokens.length-1){
+        let j=i+1;
+        while(j<tokens.length && tokens[j].t==="tag" && /^<\//.test(tokens[j].v)){
+          out.push(tokens[j]); j++;
+        }
+        if(j<tokens.length)out.push({t:"br"});
+        i=j-1; width=0;
+      }
+    }
+    return out;
+  }
+
+  function escapeChar(c){return c==="&"?"&amp;":c==="<"?"&lt;":c===">"?"&gt;":c;}
+  function tagToHtml(s){
+    if(/^<b>$/i.test(s))return "<b>";
+    if(/^<\/b>$/i.test(s))return "</b>";
+    if(/^<u>$/i.test(s))return "<u>";
+    if(/^<\/u>$/i.test(s))return "</u>";
+    if(/^<\/color>$/i.test(s))return "</span>";
+    const m=s.match(/^<color=(#[0-9a-fA-F]{3,6})>$/i);
+    return m?`<span style="color:${m[1]}">`:"";
+  }
+  function renderTokensToHtml(tokens){
+    return tokens.map(tok=>tok.t==="br"?"<br>":tok.t==="tag"?tagToHtml(tok.v):escapeChar(tok.v)).join("");
+  }
+  function buildPreviewHtml(raw){
+    return raw.split("\n").map(line=>renderTokensToHtml(wrapLineTokens(tokenizeLine(line)))).join("<br>");
+  }
+  function fmtUtcNow(){
+    const d=new Date(),p=n=>String(n).padStart(2,"0");
+    return `UTC ${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} [빌 런] 착한사람들`;
+  }
+
+  const noticeModal=document.getElementById("noticeModal");
+  const ntInput=document.getElementById("ntInput");
+  const ntCount=document.getElementById("ntCount");
+  const ntPreview=document.getElementById("ntPreview");
+  const ntFootTime=document.getElementById("ntFootTime");
+  const ntSwatch=document.getElementById("ntSwatch");
+  const ntColorPicker=document.getElementById("ntColorPicker");
+
+  function updateAll(){
+    const len=ntInput.value.length;
+    ntCount.textContent=len;
+    ntCount.parentElement.classList.toggle("warn",len>=1000);
+    const html=buildPreviewHtml(ntInput.value);
+    if(html){ntPreview.classList.remove("game-card-placeholder");ntPreview.innerHTML=html;}
+    else{ntPreview.classList.add("game-card-placeholder");ntPreview.textContent="미리보기가 여기에 표시돼요…";}
+  }
+
+  function wrapSelection(open,close){
+    const start=ntInput.selectionStart,end=ntInput.selectionEnd;
+    const val=ntInput.value, selected=val.slice(start,end);
+    const next=val.slice(0,start)+open+selected+close+val.slice(end);
+    if(next.length>1000){toast("1000자를 넘어서 태그를 추가할 수 없어요.","err");return;}
+    ntInput.value=next;
+    const newStart=start+open.length, newEnd=newStart+selected.length;
+    ntInput.focus(); ntInput.setSelectionRange(newStart,newEnd);
+    updateAll();
+  }
+
+  document.querySelectorAll(".ntbtn[data-insert]").forEach(btn=>{
+    btn.onclick=()=>{
+      const ins=btn.dataset.insert;
+      const start=ntInput.selectionStart,end=ntInput.selectionEnd;
+      const val=ntInput.value;
+      if(val.length+ins.length>1000){toast("1000자를 넘어서 삽입할 수 없어요.","err");return;}
+      ntInput.value=val.slice(0,start)+ins+val.slice(end);
+      ntInput.focus();ntInput.setSelectionRange(start+ins.length,start+ins.length);
+      updateAll();
+    };
+  });
+  document.querySelectorAll(".ntbtn[data-tag]").forEach(btn=>{
+    btn.onclick=()=>wrapSelection(`<${btn.dataset.tag}>`,`</${btn.dataset.tag}>`);
+  });
+  document.getElementById("ntColorBtn").onclick=()=>ntColorPicker.click();
+  ntColorPicker.oninput=()=>{
+    ntSwatch.style.background=ntColorPicker.value;
+    wrapSelection(`<color=${ntColorPicker.value}>`,"</color>");
+  };
+  document.getElementById("ntClearBtn").onclick=()=>{
+    if(!ntInput.value||confirm("작성 중인 내용을 모두 지울까요?")){ntInput.value="";updateAll();ntInput.focus();}
+  };
+  document.getElementById("ntCopyBtn").onclick=async()=>{
+    try{
+      await navigator.clipboard.writeText(ntInput.value);
+      toast("📋 공지 코드가 복사됐어요. 게임 공지 편집창에 붙여넣어 주세요!");
+    }catch(e){
+      try{ntInput.select();document.execCommand("copy");toast("📋 공지 코드가 복사됐어요!");}
+      catch(e2){toast("복사에 실패했어요. 직접 선택해서 복사해 주세요.","err");}
+      ntInput.setSelectionRange(0,0);
+    }
+  };
+  ntInput.addEventListener("input",updateAll);
+
+  function openNotice(){ntFootTime.textContent=fmtUtcNow();updateAll();noticeModal.classList.add("show");}
+  function closeNotice(){noticeModal.classList.remove("show");}
+  document.getElementById("noticeBtn").onclick=openNotice;
+  document.getElementById("noticeClose").onclick=closeNotice;
+  noticeModal.onclick=e=>{if(e.target===noticeModal)closeNotice();};
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&noticeModal.classList.contains("show"))closeNotice();});
+})();
+})();
+</script>
+</body>
+</html>
